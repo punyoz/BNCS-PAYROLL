@@ -2,6 +2,7 @@ import { listUsersCached } from "@/lib/auth/users-cache";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sanitizeError } from "@/lib/api-error";
+import { requirePermission, resolveTargetEmail, denyForeignBranch } from "@/lib/rbac/guard";
 
 const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -191,8 +192,12 @@ function getShiftInfo(dateStr) {
 
 export async function GET(request) {
   try {
+    const guard = await requirePermission(request, "timesheet", "read");
+    if (guard.denied) return guard.denied;
+
+    // SCOPE_SELF for Employee — pinned to the session, ?email= is ignored.
     const url       = new URL(request.url);
-    const email     = String(url.searchParams.get("email")      || "").trim().toLowerCase();
+    const email     = resolveTargetEmail(guard, url.searchParams.get("email"));
     const startDate = String(url.searchParams.get("start_date") || "").trim();
     const endDate   = String(url.searchParams.get("end_date")   || "").trim();
 
@@ -231,6 +236,9 @@ export async function GET(request) {
     );
 
     if (!user) return NextResponse.json({ records: [] });
+
+    const foreign = denyForeignBranch(guard, user.user_metadata?.branch_id);
+    if (foreign) return foreign;
 
     /* Attendance logs for the date range */
     const attResult = await supabase

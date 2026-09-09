@@ -2,14 +2,23 @@ import { listUsersCached, invalidateUsersCache } from "@/lib/auth/users-cache";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { normalizeText } from "@/lib/auth/normalize";
+import { requirePermission, resolveTargetEmail } from "@/lib/rbac/guard";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function POST(request) {
+  // "profile" is SCOPE_SELF for every role in the matrix, so this always
+  // resolves to the caller's own session email. Previously the account to edit
+  // was taken from body.email with no check that it was the caller's, which
+  // let any signed-in user rewrite another employee's bank_account_number —
+  // i.e. redirect someone else's salary payment.
+  const guard = await requirePermission(request, "profile", "update");
+  if (guard.denied) return guard.denied;
+
   const body = await request.json().catch(() => ({}));
 
-  const email = normalizeText(body.email);
+  const email = resolveTargetEmail(guard, body.email);
   const full_name = normalizeText(body.full_name, "");
   const bank_name = normalizeText(body.bank_name, "");
   const bank_account_number = normalizeText(body.bank_account_number, "");

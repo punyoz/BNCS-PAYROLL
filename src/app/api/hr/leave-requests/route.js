@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readAllLeaveRequests, updateLeaveRequestStatus } from "@/lib/leave-requests/store";
+import { sanitizeError } from "@/lib/api-error";
 
 export async function GET(request) {
   try {
