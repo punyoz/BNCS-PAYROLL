@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  // Next 16 writes AGENTS.md and CLAUDE.md into the project root on every dev
+  // run. Nothing here reads them, so keep the tree free of generated files.
+  agentRules: false,
   async headers() {
     return [
       {

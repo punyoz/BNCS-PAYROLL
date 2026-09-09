@@ -30,6 +30,7 @@ import {
   isKnownRole,
   scopeFor,
   SCOPE_NONE,
+  SCOPE_SELF,
 } from "@/lib/rbac/permissions";
 
 function deny(message, status) {
@@ -83,10 +84,16 @@ export async function requirePermission(request, module, action = "read") {
 
   const branchExempt = isBranchExempt(role);
   const branchId = branchExempt ? null : (session.branch_id || null);
+  const scope = scopeFor(role, module);
 
   // A branch-scoped role with no branch on file cannot be safely scoped:
   // letting the query through unfiltered would expose every branch.
-  if (!branchExempt && isBranchScoped(role) && !branchId) {
+  //
+  // SCOPE_SELF is the deliberate exception. Those routes key off the caller's
+  // own user id, which is already narrower than any branch filter, so an
+  // employee who has not been assigned a branch yet must still be able to
+  // reach their own payslip, timesheet and leave history.
+  if (!branchExempt && isBranchScoped(role) && !branchId && scope !== SCOPE_SELF) {
     return {
       denied: deny(
         "Your account is not assigned to a branch yet. Ask a Super Admin to assign one.",
@@ -103,7 +110,7 @@ export async function requirePermission(request, module, action = "read") {
     role,
     userId: String(session.sub || ""),
     branchId,
-    scope: scopeFor(role, module),
+    scope,
     branchExempt,
   };
 }
@@ -159,4 +166,35 @@ export function scopeQueryToBranch(query, guard, column = "branch_id") {
 export function scopeListToBranch(rows, guard, pick = (row) => row?.branch_id) {
   if (guard.branchExempt) return rows;
   return (rows || []).filter((row) => String(pick(row) || "") === String(guard.branchId || ""));
+}
+
+/**
+ * Decide which account a self-service route is allowed to act on.
+ *
+ * The employee self-service routes (payslips, timesheet, stats, leave
+ * requests) and the profile update route used to take their target straight
+ * out of a query string or request body. Nothing checked that the target was
+ * the caller, so any signed-in user could read somebody else's payslip — or
+ * rewrite their bank account number — just by changing the parameter.
+ *
+ * The matrix already answers this: those modules are SCOPE_SELF, meaning
+ * "rows belonging to the caller personally". So a self-scoped caller is pinned
+ * to their own session identity no matter what they asked for. A role with a
+ * wider scope (Accountant over payslips, for instance) may still name a
+ * target; its branch is enforced separately by denyForeignBranch().
+ *
+ * Identity comes from the signed HttpOnly cookie, which the browser cannot
+ * forge — never from the request the browser sent.
+ */
+export function resolveTargetEmail(guard, requestedEmail = "") {
+  const sessionEmail = String(guard.session?.email || "").trim().toLowerCase();
+  if (guard.scope === SCOPE_SELF) return sessionEmail;
+  return String(requestedEmail || "").trim().toLowerCase() || sessionEmail;
+}
+
+/** Same rule as resolveTargetEmail(), for routes keyed by auth user id. */
+export function resolveTargetUserId(guard, requestedUserId = "") {
+  const sessionUserId = String(guard.userId || "").trim();
+  if (guard.scope === SCOPE_SELF) return sessionUserId;
+  return String(requestedUserId || "").trim() || sessionUserId;
 }

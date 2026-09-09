@@ -17,6 +17,42 @@ function getAdminClient() {
   });
 }
 
+/**
+ * Where the password-reset link should send the user.
+ *
+ * This used to be built straight from the request's Origin header — a value
+ * the caller controls. Sending `Origin: https://evil.com` produced a reset
+ * link pointing at the attacker's site, so anyone who could trigger a reset
+ * for an account could have the recovery token delivered to themselves.
+ *
+ * The destination is now decided server-side. APP_URL is authoritative. A
+ * request's own origin is honoured only when it appears in APP_URL_ALLOWLIST
+ * (comma-separated), which keeps multi-host deployments working without
+ * trusting arbitrary input. When neither is configured we return an empty
+ * string and omit redirectTo entirely, which makes Supabase fall back to the
+ * project's own configured Site URL — the safe default, never the caller's.
+ */
+function resolveResetRedirect(request) {
+  const stripSlash = (value) => normalizeText(value).replace(/\/+$/, "");
+
+  const allowlist = normalizeText(process.env.APP_URL_ALLOWLIST)
+    .split(",")
+    .map(stripSlash)
+    .filter(Boolean);
+
+  const origin = stripSlash(request.headers.get("origin"));
+  if (origin && allowlist.includes(origin)) {
+    return `${origin}/reset-password`;
+  }
+
+  const configured = stripSlash(process.env.APP_URL);
+  if (configured) {
+    return `${configured}/reset-password`;
+  }
+
+  return "";
+}
+
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -64,14 +100,16 @@ export async function POST(request) {
       return NextResponse.json(genericSuccess);
     }
 
-    const origin = request.headers.get("origin") || "";
-    const redirectTo = `${origin}/reset-password`;
+    const redirectTo = resolveResetRedirect(request);
 
     const anonClient = createClient(projectUrl, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    await anonClient.auth.resetPasswordForEmail(user.email, { redirectTo });
+    await anonClient.auth.resetPasswordForEmail(
+      user.email,
+      redirectTo ? { redirectTo } : undefined,
+    );
 
     return NextResponse.json(genericSuccess);
   } catch (error) {

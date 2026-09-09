@@ -2,6 +2,7 @@ import { listUsersCached } from "@/lib/auth/users-cache";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sanitizeError } from "@/lib/api-error";
+import { requirePermission, resolveTargetEmail, denyForeignBranch } from "@/lib/rbac/guard";
 
 const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -240,8 +241,14 @@ async function fetchPayslipsForUser(supabase, userId) {
 
 export async function GET(request) {
   try {
+    const guard = await requirePermission(request, "payslips", "read");
+    if (guard.denied) return guard.denied;
+
+    // An Employee is SCOPE_SELF here, so this resolves to their own session
+    // email and the ?email= parameter is ignored — reading another person's
+    // payslip by editing the query string is no longer possible.
     const url = new URL(request.url);
-    const email = String(url.searchParams.get("email") || "").trim().toLowerCase();
+    const email = resolveTargetEmail(guard, url.searchParams.get("email"));
 
     if (!email) {
       return NextResponse.json({ error: "email is required." }, { status: 400 });
@@ -261,6 +268,11 @@ export async function GET(request) {
     if (!user) {
       return NextResponse.json({ payslips: [] });
     }
+
+    // Wider-scoped roles (Accountant/HR/Admin) may name a target, but only
+    // inside their own branch.
+    const foreign = denyForeignBranch(guard, user.user_metadata?.branch_id);
+    if (foreign) return foreign;
 
     const payslips = await fetchPayslipsForUser(supabase, user.id);
 

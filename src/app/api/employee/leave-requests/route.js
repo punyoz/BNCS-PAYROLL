@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { sanitizeError } from "@/lib/api-error";
 import {
   readAllLeaveRequests,
   insertLeaveRequest,
   normalizeLeaveRequest,
   summarizeLeaveBalance,
 } from "@/lib/leave-requests/store";
+import { requirePermission, resolveTargetUserId } from "@/lib/rbac/guard";
+import { SCOPE_SELF } from "@/lib/rbac/permissions";
 
 export async function GET(request) {
   try {
+    const guard = await requirePermission(request, "leave_approval", "read");
+    if (guard.denied) return guard.denied;
+
     const url = new URL(request.url);
-    const employeeId = String(url.searchParams.get("employee_id") || "").trim();
-    const employeeName = String(url.searchParams.get("employee_name") || "").trim().toLowerCase();
+    const isSelfScoped = guard.scope === SCOPE_SELF;
+
+    // The filter below matches on id OR name, so a self-scoped caller must be
+    // pinned on BOTH. Pinning only the id would still let someone pass
+    // ?employee_name=<colleague> and pull that colleague's leave history back
+    // through the other half of the OR.
+    const employeeId = resolveTargetUserId(guard, url.searchParams.get("employee_id"));
+    const employeeName = isSelfScoped
+      ? String(guard.session?.full_name || "").trim().toLowerCase()
+      : String(url.searchParams.get("employee_name") || "").trim().toLowerCase();
 
     if (!employeeId && !employeeName) {
       return NextResponse.json({ requests: [] });
@@ -34,10 +48,17 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const guard = await requirePermission(request, "leave_approval", "create");
+    if (guard.denied) return guard.denied;
+
     const body = await request.json();
 
-    const employeeId = String(body.employee_id || "").trim();
-    const employeeName = String(body.employee_name || "").trim();
+    // Whose request this is comes from the signed session, not the body, so a
+    // caller cannot file (or later cancel) leave in a colleague's name.
+    const employeeId = resolveTargetUserId(guard, body.employee_id);
+    const employeeName = guard.scope === SCOPE_SELF
+      ? String(guard.session?.full_name || "").trim()
+      : String(body.employee_name || "").trim();
     const position = String(body.position || "Employee").trim();
     const leaveType = String(body.leave_type || "").trim();
     const payStatus = String(body.pay_status || "with_pay").trim().toLowerCase() === "without_pay"
