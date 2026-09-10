@@ -173,10 +173,22 @@ export async function POST(request) {
     invalidateUsersCache();
 
     const newUser = createResult.data.user;
-    await supabase.from("profiles").upsert(
+    const profileResult = await supabase.from("profiles").upsert(
       { id: newUser.id, email, role, full_name: fullName, branch_id: branchId },
       { onConflict: "id" },
     );
+
+    // The auth account already exists at this point either way — surfacing
+    // this loudly (instead of the previous silent failure) is what actually
+    // matters: a profiles-less account can't be the subject or actor of
+    // anything that references profiles by foreign key (e.g. transfer
+    // requests), and that failure mode is much harder to diagnose later.
+    if (profileResult.error) {
+      return NextResponse.json(
+        { error: `Account created, but its profile record failed: ${sanitizeError(profileResult.error)}` },
+        { status: 500 },
+      );
+    }
 
     await appendAuditLog({
       module: "users",
@@ -293,10 +305,16 @@ export async function PATCH(request) {
 
     if (action === "update") {
       const email = updatePayload.email || existingUser.email;
-      await supabase.from("profiles").upsert(
+      const profileResult = await supabase.from("profiles").upsert(
         { id, email, role: nextMetadata.role, full_name: nextMetadata.full_name },
         { onConflict: "id" },
       );
+      if (profileResult.error) {
+        return NextResponse.json(
+          { error: `Account updated, but its profile record failed: ${sanitizeError(profileResult.error)}` },
+          { status: 500 },
+        );
+      }
     }
 
     const updatedUser = updatedResult.data.user;
