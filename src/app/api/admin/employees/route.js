@@ -171,6 +171,10 @@ function shapeEmployee(user, profile, index) {
     philhealth_number: normalizeText(metadata.philhealth_number, ""),
     bank_name: normalizeText(metadata.bank_name, ""),
     bank_account_number: normalizeText(metadata.bank_account_number, ""),
+    // Live on profiles, not user_metadata (see
+    // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql).
+    cp_number: normalizeText(profile?.cp_number, ""),
+    date_hired: normalizeText(profile?.date_hired, ""),
   };
 }
 
@@ -209,7 +213,7 @@ async function fetchEmployees(supabase) {
   if (userIds.length) {
     const profileResult = await supabase
       .from("profiles")
-      .select("id,email,full_name,role,branch_id")
+      .select("id,email,full_name,role,branch_id,cp_number,date_hired")
       .in("id", userIds);
 
     if (profileResult.error) {
@@ -337,6 +341,8 @@ export async function POST(request) {
         role,
         full_name: fullName,
         branch_id: branchId,
+        cp_number: normalizeText(body.cp_number, "") || null,
+        date_hired: normalizeText(body.date_hired, "") || null,
       },
       {
         onConflict: "id",
@@ -352,6 +358,8 @@ export async function POST(request) {
       email,
       full_name: fullName,
       role,
+      cp_number: normalizeText(body.cp_number, ""),
+      date_hired: normalizeText(body.date_hired, ""),
     }, employeesBefore.length);
 
     await appendAuditLog({
@@ -476,6 +484,8 @@ export async function PATCH(request) {
       if (body.philhealth_number !== undefined) nextMetadata.philhealth_number = normalizeText(body.philhealth_number, normalizeText(currentMetadata.philhealth_number, ""));
       if (body.bank_name !== undefined) nextMetadata.bank_name = normalizeText(body.bank_name, normalizeText(currentMetadata.bank_name, ""));
       if (body.bank_account_number !== undefined) nextMetadata.bank_account_number = normalizeText(body.bank_account_number, normalizeText(currentMetadata.bank_account_number, ""));
+      if (body.cp_number !== undefined) nextMetadata.cp_number = normalizeText(body.cp_number, "");
+      if (body.date_hired !== undefined) nextMetadata.date_hired = normalizeText(body.date_hired, "");
     }
 
     const email = action === "update"
@@ -502,17 +512,20 @@ export async function PATCH(request) {
     invalidateUsersCache();
 
     if (action === "update") {
-      const profileResult = await supabase.from("profiles").upsert(
-        {
-          id,
-          email,
-          role: nextRole,
-          full_name: nextMetadata.full_name,
-        },
-        {
-          onConflict: "id",
-        },
-      );
+      const profilePatch = {
+        id,
+        email,
+        role: nextRole,
+        full_name: nextMetadata.full_name,
+      };
+      // profiles is authoritative for these two (employee_info_view reads
+      // from profiles, not user_metadata) — only touch them when supplied.
+      if (body.cp_number !== undefined) profilePatch.cp_number = normalizeText(body.cp_number, "") || null;
+      if (body.date_hired !== undefined) profilePatch.date_hired = normalizeText(body.date_hired, "") || null;
+
+      const profileResult = await supabase.from("profiles").upsert(profilePatch, {
+        onConflict: "id",
+      });
 
       if (profileResult.error) {
         return NextResponse.json({ error: sanitizeError(profileResult.error) }, { status: 400 });
@@ -525,6 +538,8 @@ export async function PATCH(request) {
       email,
       role: nextRole,
       full_name: nextMetadata.full_name || existingUser.user_metadata?.full_name || existingUser.email,
+      cp_number: nextMetadata.cp_number,
+      date_hired: nextMetadata.date_hired,
     }, 0);
 
     const actionLabel = action === "archive"

@@ -11,6 +11,7 @@ const HR_PAGES = {
   'hr-dashboard':     'HR Dashboard',
   'hr-employees':     'User Management',
   'hr-employee-info': 'Employee Information',
+  'hr-employee-directory': 'Employee Directory',
   'hr-branch-assign': 'Branch Assignment',
   'hr-attendance':    'Attendance Monitoring',
   'hr-leaves':        'Leave Approval',
@@ -64,6 +65,7 @@ function hrNav(pageId, navEl) {
   if (pageId === 'hr-dashboard') loadHRDashboard();
   else if (pageId === 'hr-employees') loadHREmployees();
   else if (pageId === 'hr-employee-info') loadHREmployeeInfo();
+  else if (pageId === 'hr-employee-directory') loadHREmployeeDirectory();
   else if (pageId === 'hr-branch-assign') loadHrBranchAssignment();
   else if (pageId === 'hr-attendance') loadHRAttendance();
   else if (pageId === 'hr-leaves') loadHRLeaves();
@@ -280,6 +282,8 @@ function openHrEditEmployeeModal(employee) {
   if (statusEl) statusEl.value = employee.employee_status || 'Active';
 
   if (form.elements.address) form.elements.address.value = employee.address || '';
+  if (form.elements.cp_number) form.elements.cp_number.value = employee.cp_number || '';
+  if (form.elements.date_hired) form.elements.date_hired.value = employee.date_hired || '';
   if (form.elements.sss_number) form.elements.sss_number.value = employee.sss_number || '';
   if (form.elements.pagibig_number) form.elements.pagibig_number.value = employee.pagibig_number || '';
   if (form.elements.philhealth_number) form.elements.philhealth_number.value = employee.philhealth_number || '';
@@ -369,6 +373,8 @@ async function submitHrEditEmployee(event) {
     position: form.querySelector('[name="position"]').value,
     employee_status: form.querySelector('[name="employee_status"]').value,
     address: (form.elements.address?.value || '').trim(),
+    cp_number: (form.elements.cp_number?.value || '').trim(),
+    date_hired: (form.elements.date_hired?.value || '').trim(),
     sss_number: (form.elements.sss_number?.value || '').trim(),
     pagibig_number: (form.elements.pagibig_number?.value || '').trim(),
     philhealth_number: (form.elements.philhealth_number?.value || '').trim(),
@@ -458,6 +464,54 @@ function renderHRInfoTable(employees) {
   }
 
   hrInfoPaginator.setData(employees);
+}
+
+/* ── EMPLOYEE DIRECTORY (read-only) ── */
+let hrEmployeeDirectoryRows = [];
+
+async function loadHREmployeeDirectory() {
+  const tbody = document.getElementById('hr-employee-directory-table-body');
+  if (tbody) tbody.innerHTML = skeletonRows(6);
+
+  try {
+    if (!hrBranches.length) {
+      const branchRes = await fetch('/api/admin/branches');
+      if (branchRes.ok) {
+        const bd = await branchRes.json();
+        hrBranches = (bd.branches || []).filter((b) => b.status === 'Active');
+      }
+    }
+
+    const response = await fetch('/api/admin/employee-info');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load employee directory.');
+
+    hrEmployeeDirectoryRows = data.employees || [];
+    renderHREmployeeDirectory();
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderHREmployeeDirectory() {
+  const tbody = document.getElementById('hr-employee-directory-table-body');
+  if (!tbody) return;
+
+  if (!hrEmployeeDirectoryRows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--t3);">No employee records found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = hrEmployeeDirectoryRows.map((row) => `
+    <tr>
+      <td>${escapeHtml(row.full_name || '—')}</td>
+      <td>${escapeHtml(row.cp_number || '—')}</td>
+      <td>${escapeHtml(row.branch_id ? (hrBranches.find((b) => b.id === row.branch_id)?.name || row.branch_id) : '—')}</td>
+      <td>${escapeHtml(row.position || '—')}</td>
+      <td>${escapeHtml(row.status || '—')}</td>
+      <td>${escapeHtml(row.date_hired || '—')}</td>
+    </tr>
+  `).join('');
 }
 
 /* ── ATTENDANCE ── */
@@ -1322,6 +1376,8 @@ async function submitHrAddEmployee(event) {
     employee_status: form.querySelector('[name="employee_status"]').value,
     basic_salary: Number(form.querySelector('[name="basic_salary"]').value || 0),
     address: form.querySelector('[name="address"]').value.trim(),
+    cp_number: form.querySelector('[name="cp_number"]').value.trim(),
+    date_hired: form.querySelector('[name="date_hired"]').value.trim(),
     sss_number: form.querySelector('[name="sss_number"]').value.trim(),
     pagibig_number: form.querySelector('[name="pagibig_number"]').value.trim(),
     philhealth_number: form.querySelector('[name="philhealth_number"]').value.trim(),

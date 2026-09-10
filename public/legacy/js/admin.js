@@ -12,6 +12,8 @@ const ADMIN_PAGES = {
   'adm-attendance':   'Attendance',
   'adm-audit-logs':   'Audit Logs',
   'adm-users':        'User Management',
+  'adm-employee-info':'Employee Info',
+  'adm-transfer-requests':'Transfer Requests',
   'adm-branch-assign':'Branch Assignment',
   'adm-maintenance':  'System Maintenance',
   'adm-branch-reports':'Branch Reports',
@@ -36,6 +38,13 @@ let userRoleFilter = 'all';
 let userSearch = '';
 let currentEditingUser = null;
 let usersPaginator = null;
+
+/* ── EMPLOYEE INFO STATE ── */
+let employeeInfoRows = [];
+
+/* ── TRANSFER REQUESTS STATE ── */
+let adminTransferPending = [];
+let adminTransferHistory = [];
 
 /* ── BRANCH ASSIGNMENT STATE ── */
 let branchAllEmployees = [];
@@ -91,6 +100,14 @@ function adminNav(pageId, navEl) {
 
   if (pageId === 'adm-users') {
     loadUsers();
+  }
+
+  if (pageId === 'adm-employee-info') {
+    loadEmployeeInfo();
+  }
+
+  if (pageId === 'adm-transfer-requests') {
+    loadAdminTransferRequests();
   }
 
   if (pageId === 'adm-branch-assign') {
@@ -1337,6 +1354,8 @@ async function submitAddUser(event) {
           basic_salary: Number(formData.get('basic_salary') || 0) || 0,
           employee_status: String(formData.get('employee_status') || 'Active').trim(),
           address: String(formData.get('address') || '').trim(),
+          cp_number: String(formData.get('cp_number') || '').trim(),
+          date_hired: String(formData.get('date_hired') || '').trim(),
           sss_number: String(formData.get('sss_number') || '').trim(),
           pagibig_number: String(formData.get('pagibig_number') || '').trim(),
           philhealth_number: String(formData.get('philhealth_number') || '').trim(),
@@ -1421,6 +1440,8 @@ function openEditUserModal(userId) {
     if (form.elements.employee_status) form.elements.employee_status.value = currentEditingUser.employee_status || 'Active';
     if (form.elements.basic_salary) form.elements.basic_salary.value = currentEditingUser.basic_salary || 0;
     if (form.elements.address) form.elements.address.value = currentEditingUser.address || '';
+    if (form.elements.cp_number) form.elements.cp_number.value = currentEditingUser.cp_number || '';
+    if (form.elements.date_hired) form.elements.date_hired.value = currentEditingUser.date_hired || '';
     if (form.elements.sss_number) form.elements.sss_number.value = currentEditingUser.sss_number || '';
     if (form.elements.pagibig_number) form.elements.pagibig_number.value = currentEditingUser.pagibig_number || '';
     if (form.elements.philhealth_number) form.elements.philhealth_number.value = currentEditingUser.philhealth_number || '';
@@ -1540,6 +1561,8 @@ async function submitEditUser(event) {
         date_of_birth: String(formData.get('date_of_birth') || '').trim(),
         employee_status: String(formData.get('employee_status') || 'Active').trim(),
         address: String(formData.get('address') || '').trim(),
+        cp_number: String(formData.get('cp_number') || '').trim(),
+        date_hired: String(formData.get('date_hired') || '').trim(),
         sss_number: String(formData.get('sss_number') || '').trim(),
         pagibig_number: String(formData.get('pagibig_number') || '').trim(),
         philhealth_number: String(formData.get('philhealth_number') || '').trim(),
@@ -1576,6 +1599,178 @@ async function submitEditUser(event) {
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Save Changes';
+  }
+}
+
+/* ═══════════════════════════════════════
+   EMPLOYEE INFO (read-only)
+   ═══════════════════════════════════════ */
+
+async function loadEmployeeInfo() {
+  const tbody = document.getElementById('adm-employee-info-table-body');
+  if (tbody) tbody.innerHTML = skeletonRows(6);
+
+  try {
+    const response = await fetch('/api/admin/employee-info');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load employee info.');
+
+    employeeInfoRows = data.employees || [];
+    renderEmployeeInfo();
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#E85555;">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderEmployeeInfo() {
+  const tbody = document.getElementById('adm-employee-info-table-body');
+  if (!tbody) return;
+
+  if (!employeeInfoRows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--t3);">No employee records found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = employeeInfoRows.map((row) => `
+    <tr>
+      <td>${escapeHtml(row.full_name || '—')}</td>
+      <td>${escapeHtml(row.cp_number || '—')}</td>
+      <td>${escapeHtml(row.branch_id ? (admAssignBranches.find((b) => b.id === row.branch_id)?.name || row.branch_id) : '—')}</td>
+      <td>${escapeHtml(row.position || '—')}</td>
+      <td>${escapeHtml(row.status || '—')}</td>
+      <td>${escapeHtml(row.date_hired || '—')}</td>
+    </tr>
+  `).join('');
+}
+
+/* ═══════════════════════════════════════
+   TRANSFER REQUESTS (Admin: create + view own)
+   ═══════════════════════════════════════ */
+
+async function loadAdminTransferRequests() {
+  const tbody = document.getElementById('adm-transfer-requests-table-body');
+  if (tbody) tbody.innerHTML = skeletonRows(6);
+
+  try {
+    if (!admAssignBranches.length) {
+      const branchRes = await fetch('/api/admin/branches');
+      if (branchRes.ok) {
+        const bd = await branchRes.json();
+        admAssignBranches = (bd.branches || []).filter((b) => b.status === 'Active');
+      }
+    }
+    if (!allUsers.length) {
+      await loadUsers();
+    }
+
+    const response = await fetch('/api/admin/transfer-requests');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load transfer requests.');
+
+    adminTransferPending = data.pending_requests || [];
+    adminTransferHistory = data.history_requests || [];
+    renderAdminTransferRequests();
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#E85555;">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function branchNameById(branchId) {
+  return admAssignBranches.find((b) => b.id === branchId)?.name || branchId || '—';
+}
+
+function transferStatusBadge(status) {
+  if (status === 'approved') return '<span class="badge bg"><span class="bd"></span>Approved</span>';
+  if (status === 'rejected') return '<span class="badge br"><span class="bd"></span>Rejected</span>';
+  return '<span class="badge ba"><span class="bd"></span>Pending</span>';
+}
+
+function renderAdminTransferRequests() {
+  const tbody = document.getElementById('adm-transfer-requests-table-body');
+  if (!tbody) return;
+
+  const rows = [...adminTransferPending, ...adminTransferHistory];
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--t3);">No transfer requests yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((req) => `
+    <tr>
+      <td>${escapeHtml(req.employee_name || req.employee_id || 'Unknown')}</td>
+      <td>${escapeHtml(branchNameById(req.from_branch_id))}</td>
+      <td>${escapeHtml(branchNameById(req.to_branch_id))}</td>
+      <td>${transferStatusBadge(req.status)}</td>
+      <td>${escapeHtml(req.remarks || '—')}</td>
+      <td>${req.created_at ? new Date(req.created_at).toLocaleDateString() : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function openTransferRequestModal() {
+  const modal = document.getElementById('transfer-request-modal');
+  const employeeSelect = document.getElementById('transfer-request-employee');
+  const branchSelect = document.getElementById('transfer-request-to-branch');
+  if (!modal || !employeeSelect || !branchSelect) return;
+
+  employeeSelect.innerHTML = allUsers
+    .filter((u) => !u.archived)
+    .map((u) => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.full_name || u.email)}</option>`)
+    .join('');
+
+  branchSelect.innerHTML = admAssignBranches
+    .map((b) => `<option value="${escapeHtml(b.id)}">${escapeHtml(b.name)}</option>`)
+    .join('');
+
+  const form = document.getElementById('transfer-request-form');
+  form?.reset();
+  const feedback = document.getElementById('transfer-request-feedback');
+  if (feedback) { feedback.textContent = ''; feedback.classList.remove('ok', 'err'); }
+
+  modal.style.display = 'flex';
+}
+
+function closeTransferRequestModal() {
+  const modal = document.getElementById('transfer-request-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitTransferRequest(event) {
+  event.preventDefault();
+  const form = event.target;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const formData = new FormData(form);
+  const feedback = document.getElementById('transfer-request-feedback');
+
+  const employeeId = String(formData.get('employee_id') || '').trim();
+  const toBranchId = String(formData.get('to_branch_id') || '').trim();
+  const remarks = String(formData.get('remarks') || '').trim();
+
+  if (!employeeId || !toBranchId) {
+    if (feedback) { feedback.textContent = 'Employee and destination branch are required.'; feedback.classList.add('err'); }
+    return;
+  }
+
+  try {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    const response = await fetch('/api/admin/transfer-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: employeeId, to_branch_id: toBranchId, remarks }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to submit transfer request.');
+
+    window.pushNotification?.('Transfer Request Submitted', 'Waiting for Super Admin approval.', 'success');
+    await loadAdminTransferRequests();
+    setTimeout(() => closeTransferRequestModal(), 500);
+  } catch (error) {
+    if (feedback) { feedback.textContent = error.message; feedback.classList.add('err'); }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Request';
   }
 }
 

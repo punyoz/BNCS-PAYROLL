@@ -71,6 +71,17 @@ export const MODULES = {
     order: 4, label: "Employee Information", section: "Management",
     page: { hr: "hr-employee-info" },
   },
+  // Read-only summary view (id, full_name, cp_number, branch_id, position,
+  // status, date_hired) backed by public.employee_info_view — separate from
+  // employee_information's full CRUD table above.
+  employee_info_readonly: {
+    order: 4.5, label: "Employee Info", section: "Management",
+    page: { admin: "adm-employee-info", super_admin: "sa-employee-info", hr: "hr-employee-directory" },
+    // HR already owns a full-CRUD "Employee Information" page for the same
+    // module (employee_information above) — a distinct label keeps the two
+    // from reading as duplicates in HR's sidebar.
+    labelOverride: { hr: "Employee Directory" },
+  },
   branch_management: {
     order: 5, label: "Branch Management", section: "Management",
     page: { super_admin: "sa-branches" },
@@ -82,6 +93,13 @@ export const MODULES = {
   roles_permissions: {
     order: 7, label: "Roles & Permissions", section: "Management",
     page: { super_admin: "sa-roles" },
+  },
+  // Admin requests a branch move for staff in their own branch; Super Admin
+  // reviews and approves/rejects (public.transfer_requests + its trigger
+  // moves profiles.branch_id automatically on approval).
+  transfer_requests: {
+    order: 6.5, label: "Transfer Requests", section: "Management",
+    page: { admin: "adm-transfer-requests", super_admin: "sa-transfer-requests" },
   },
   leave_approval: {
     order: 8, label: "Leave Approval", section: "Leave",
@@ -163,9 +181,12 @@ export const ROLE_PERMISSIONS = {
     attendance: full(SCOPE_ALL),
     user_management: full(SCOPE_ALL),
     employee_information: full(SCOPE_ALL),
+    employee_info_readonly: view(SCOPE_ALL),
     branch_management: full(SCOPE_ALL),
     branch_assignment: full(SCOPE_ALL),
     roles_permissions: full(SCOPE_ALL),
+    // Sole approver: only Super Admin may update a transfer request's status.
+    transfer_requests: full(SCOPE_ALL),
     leave_approval: full(SCOPE_ALL),
     rfid_devices: full(SCOPE_ALL),
     // Oversight/approval only — the Accountant owns payroll processing.
@@ -196,9 +217,13 @@ export const ROLE_PERMISSIONS = {
     // endpoint. The ceiling that matters is MANAGEABLE_ROLES below: Admin can
     // reach hr / accountant / employee records only, inside its own branch.
     employee_information: { scope: SCOPE_BRANCH, actions: CRUD },
+    employee_info_readonly: view(SCOPE_BRANCH),
     branch_management: none(),
     branch_assignment: { scope: SCOPE_BRANCH, actions: READ_WRITE },
     roles_permissions: none(),
+    // Admin may raise a transfer request out of its own branch and read its
+    // own requests, but never decide one — approval is Super Admin's alone.
+    transfer_requests: { scope: SCOPE_BRANCH, actions: ["create", "read"] },
     leave_approval: view(SCOPE_BRANCH),
     rfid_devices: view(SCOPE_BRANCH),
     process_payroll: none(),
@@ -222,6 +247,7 @@ export const ROLE_PERMISSIONS = {
     user_management: { scope: SCOPE_BRANCH, actions: READ_WRITE },
     // Primary owner of employee records / 201 files for their branch.
     employee_information: full(SCOPE_BRANCH),
+    employee_info_readonly: view(SCOPE_BRANCH),
     branch_management: none(),
     branch_assignment: { scope: SCOPE_BRANCH, actions: READ_WRITE },
     roles_permissions: none(),

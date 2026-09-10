@@ -176,7 +176,26 @@ INSERT INTO public.role_permissions (role, module, scope, can_create, can_read, 
   ('employee', 'payroll_reports',      'none', false, false, false, false),
   ('employee', 'branch_reports',       'none', false, false, false, false),
   ('employee', 'profile',              'self', true,  true,  true,  true),
-  ('employee', 'timesheet',            'self', false, true,  false, false)
+  ('employee', 'timesheet',            'self', false, true,  false, false),
+
+  -- ─ employee_info_readonly / transfer_requests — added alongside
+  -- public.transfer_requests / employee_info_view in
+  -- 20260910_transfer_requests_and_employee_contact.sql. Neither module is
+  -- consumed by has_permission() yet (that table/view use their own bespoke
+  -- RLS — is_super_admin()/can_reach_branch() — added in that same
+  -- migration), but every module is seeded for every role regardless, same
+  -- as the rest of this table.
+  ('super_admin', 'employee_info_readonly', 'all', false, true, false, false),
+  ('admin', 'employee_info_readonly', 'branch', false, true, false, false),
+  ('hr', 'employee_info_readonly', 'branch', false, true, false, false),
+  ('accountant', 'employee_info_readonly', 'none', false, false, false, false),
+  ('employee', 'employee_info_readonly', 'none', false, false, false, false),
+
+  ('super_admin', 'transfer_requests', 'all', true, true, true, true),
+  ('admin', 'transfer_requests', 'branch', true, true, false, false),
+  ('hr', 'transfer_requests', 'none', false, false, false, false),
+  ('accountant', 'transfer_requests', 'none', false, false, false, false),
+  ('employee', 'transfer_requests', 'none', false, false, false, false)
 ON CONFLICT (role, module) DO UPDATE SET
   scope      = EXCLUDED.scope,
   can_create = EXCLUDED.can_create,

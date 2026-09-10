@@ -65,9 +65,11 @@ const MODULE_ICON = {
   attendance: { default: "check" },
   user_management: { default: "users", hr: "user" },
   employee_information: { default: "document" },
+  employee_info_readonly: { default: "document" },
   branch_management: { default: "buildings" },
   branch_assignment: { default: "buildings" },
   roles_permissions: { default: "users" },
+  transfer_requests: { default: "buildings" },
   leave_approval: { default: "leave" },
   rfid_devices: { default: "check" },
   process_payroll: { default: "plus" },
@@ -94,6 +96,7 @@ const SECTION_OVERRIDE = {
   hr: {
     user_management: "Employees",
     employee_information: "Employees",
+    employee_info_readonly: "Employees",
     branch_assignment: "Employees",
   },
   accountant: {

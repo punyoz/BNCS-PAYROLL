@@ -84,6 +84,10 @@ function shapeEmployee(user, profile) {
     philhealth_number: normalizeText(meta.philhealth_number, ""),
     bank_name: normalizeText(meta.bank_name, ""),
     bank_account_number: normalizeText(meta.bank_account_number, ""),
+    // Live on profiles, not user_metadata (see
+    // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql).
+    cp_number: normalizeText(profile?.cp_number, ""),
+    date_hired: normalizeText(profile?.date_hired, ""),
   };
 }
 
@@ -108,7 +112,7 @@ export async function GET(request) {
     if (userIds.length) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id,email,full_name,employee_id,employee_type,position,employee_status")
+        .select("id,email,full_name,employee_id,employee_type,position,employee_status,cp_number,date_hired")
         .in("id", userIds);
       (profiles || []).forEach((p) => profileMap.set(p.id, p));
     }
@@ -173,6 +177,8 @@ export async function PATCH(request) {
     if (body.philhealth_number !== undefined) updatedMeta.philhealth_number = normalizeText(body.philhealth_number, normalizeText(currentMeta.philhealth_number, ""));
     if (body.bank_name !== undefined) updatedMeta.bank_name = normalizeText(body.bank_name, normalizeText(currentMeta.bank_name, ""));
     if (body.bank_account_number !== undefined) updatedMeta.bank_account_number = normalizeText(body.bank_account_number, normalizeText(currentMeta.bank_account_number, ""));
+    if (body.cp_number !== undefined) updatedMeta.cp_number = normalizeText(body.cp_number, "");
+    if (body.date_hired !== undefined) updatedMeta.date_hired = normalizeText(body.date_hired, "");
 
     const nextEmail = body.email !== undefined
       ? normalizeRoleEmail(normalizeText(body.email, userData.user.email))
@@ -192,6 +198,10 @@ export async function PATCH(request) {
     if (nextEmail) profilePatch.email = nextEmail;
     if (employee_type !== undefined) profilePatch.employee_type = normalizeText(employee_type);
     if (position !== undefined) profilePatch.position = normalizeText(position);
+    // profiles is authoritative for these two (employee_info_view reads from
+    // profiles, not user_metadata) — only touch them when supplied.
+    if (body.cp_number !== undefined) profilePatch.cp_number = normalizeText(body.cp_number, "") || null;
+    if (body.date_hired !== undefined) profilePatch.date_hired = normalizeText(body.date_hired, "") || null;
     if (Object.keys(profilePatch).length) {
       await supabase.from("profiles").update(profilePatch).eq("id", id);
     }

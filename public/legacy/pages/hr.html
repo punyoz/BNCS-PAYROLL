@@ -196,6 +196,23 @@
     </div>
 
     <!-- ──────────────────────────────
+         PAGE: Employee Directory (read-only)
+    ────────────────────────────── -->
+    <div class="page" id="hr-employee-directory">
+      <div class="ph"><h2>Employee Directory</h2><p>Read-only summary of employee contact and employment details for your branch</p></div>
+
+      <div class="card">
+        <div class="tw"><table>
+          <thead><tr><th>Name</th><th>Contact Number</th><th>Branch</th><th>Position</th><th>Status</th><th>Date Hired</th></tr></thead>
+          <tbody id="hr-employee-directory-table-body">
+            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
+            <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ──────────────────────────────
          PAGE: Attendance Monitoring
     ────────────────────────────── -->
     <div class="page" id="hr-attendance">
@@ -531,6 +548,16 @@
           <label>Home Address</label>
           <textarea class="fc" name="address" rows="2" maxlength="200" placeholder="e.g. 123 Rizal St., Barangay San Isidro, Antipolo City, Rizal"></textarea>
         </div>
+        <!-- Contact -->
+        <div style="grid-column:1/-1;margin:8px 0 4px;"><div class="stitle" style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">CONTACT &amp; EMPLOYMENT</div></div>
+        <div class="fg">
+          <label>Contact Number</label>
+          <input class="fc" name="cp_number" type="tel" placeholder="e.g. 0917 123 4567" maxlength="20" />
+        </div>
+        <div class="fg">
+          <label>Date Hired</label>
+          <input class="fc" name="date_hired" type="date" />
+        </div>
         <!-- Government IDs -->
         <div style="grid-column:1/-1;margin:8px 0 4px;"><div class="stitle" style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">GOVERNMENT ID NUMBERS</div></div>
         <div class="fg">
@@ -652,6 +679,16 @@
         <div class="fg" style="grid-column:1/-1;">
           <label>Home Address</label>
           <textarea class="fc" name="address" rows="2" maxlength="200" placeholder="e.g. 123 Rizal St., Barangay San Isidro, Antipolo City, Rizal"></textarea>
+        </div>
+        <!-- Contact -->
+        <div style="grid-column:1/-1;margin:8px 0 4px;"><div class="stitle" style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">CONTACT &amp; EMPLOYMENT</div></div>
+        <div class="fg">
+          <label>Contact Number</label>
+          <input class="fc" name="cp_number" type="tel" placeholder="e.g. 0917 123 4567" maxlength="20" />
+        </div>
+        <div class="fg">
+          <label>Date Hired</label>
+          <input class="fc" name="date_hired" type="date" />
         </div>
         <!-- Government IDs -->
         <div style="grid-column:1/-1;margin:8px 0 4px;"><div class="stitle" style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">GOVERNMENT ID NUMBERS</div></div>

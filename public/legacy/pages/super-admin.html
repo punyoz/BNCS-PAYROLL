@@ -303,6 +303,51 @@
     </div>
 
     <!-- ──────────────────────────────
+         PAGE: Employee Info (read-only, all branches)
+    ────────────────────────────── -->
+    <div class="page" id="sa-employee-info">
+      <div class="ph"><h2>Employee Info</h2><p>Read-only summary of employee contact and employment details across every branch</p></div>
+
+      <div class="card">
+        <div class="tw"><table>
+          <thead><tr><th>Name</th><th>Contact Number</th><th>Branch</th><th>Position</th><th>Status</th><th>Date Hired</th></tr></thead>
+          <tbody id="sa-employee-info-table-body">
+            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
+            <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ──────────────────────────────
+         PAGE: Transfer Requests
+    ────────────────────────────── -->
+    <div class="page" id="sa-transfer-requests">
+      <div class="ph"><h2>Transfer Requests</h2><p>Review and decide branch transfer requests raised by Admins</p></div>
+      <div class="banner banner-blue">ℹ Approving a request immediately moves the employee to the destination branch. Rejected or approved requests move to History.</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div id="sa-transfer-pending">
+          <div class="approval-card">
+            <div class="approval-card-body">
+              <div class="approval-card-meta"><div class="sk-bar" style="width:60%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="sh"><span class="stitle">Transfer History</span></div>
+        <div class="tw"><table>
+          <thead><tr><th>Employee</th><th>From Branch</th><th>To Branch</th><th>Decision</th><th>Remarks</th><th>Requested</th><th>Reviewed</th></tr></thead>
+          <tbody id="sa-transfer-history-body">
+            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ──────────────────────────────
          PAGE: System Maintenance
     ────────────────────────────── -->
     <div class="page" id="sa-maintenance">

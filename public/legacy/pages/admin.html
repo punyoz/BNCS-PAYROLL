@@ -253,6 +253,45 @@
     </div>
 
     <!-- ──────────────────────────────
+         PAGE: Employee Info (read-only)
+    ────────────────────────────── -->
+    <div class="page" id="adm-employee-info">
+      <div class="ph"><h2>Employee Info</h2><p>Read-only summary of employee contact and employment details for your branch</p></div>
+
+      <div class="card">
+        <div class="tw"><table>
+          <thead><tr><th>Name</th><th>Contact Number</th><th>Branch</th><th>Position</th><th>Status</th><th>Date Hired</th></tr></thead>
+          <tbody id="adm-employee-info-table-body">
+            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
+            <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ──────────────────────────────
+         PAGE: Transfer Requests
+    ────────────────────────────── -->
+    <div class="page" id="adm-transfer-requests">
+      <div class="ph"><h2>Transfer Requests</h2><p>Request a branch transfer for an employee in your branch. Super Admin reviews and decides.</p></div>
+
+      <div class="sh" style="margin-bottom:12px;">
+        <span class="stitle">My Transfer Requests</span>
+        <span class="sp"></span>
+        <button class="btn btn-primary" onclick="openTransferRequestModal()">New Transfer Request</button>
+      </div>
+
+      <div class="card">
+        <div class="tw"><table>
+          <thead><tr><th>Employee</th><th>From Branch</th><th>To Branch</th><th>Status</th><th>Remarks</th><th>Requested</th></tr></thead>
+          <tbody id="adm-transfer-requests-table-body">
+            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ──────────────────────────────
          PAGE: Branch Assignment
     ────────────────────────────── -->
     <div class="page" id="adm-branch-assign">
@@ -611,6 +650,16 @@
           <label>Home Address</label>
           <textarea class="fc" name="address" rows="2" maxlength="200" placeholder="e.g. 123 Rizal St., Barangay San Isidro, Antipolo City, Rizal"></textarea>
         </div>
+        <!-- Contact -->
+        <div class="adm-emp-fields" style="grid-column:1/-1;margin:8px 0 4px;"><div style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">CONTACT &amp; EMPLOYMENT</div></div>
+        <div class="fg adm-emp-fields">
+          <label>Contact Number</label>
+          <input class="fc" name="cp_number" type="tel" placeholder="e.g. 0917 123 4567" maxlength="20" />
+        </div>
+        <div class="fg adm-emp-fields">
+          <label>Date Hired</label>
+          <input class="fc" name="date_hired" type="date" />
+        </div>
         <!-- Government IDs -->
         <div class="adm-emp-fields" style="grid-column:1/-1;margin:8px 0 4px;"><div style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">GOVERNMENT ID NUMBERS</div></div>
         <div class="fg adm-emp-fields">
@@ -738,6 +787,16 @@
           <label>Home Address</label>
           <textarea class="fc" name="address" rows="2" maxlength="200" placeholder="e.g. 123 Rizal St., Barangay San Isidro, Antipolo City, Rizal"></textarea>
         </div>
+        <!-- Contact -->
+        <div class="adm-edit-emp-fields" style="grid-column:1/-1;margin:8px 0 4px;"><div style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">CONTACT &amp; EMPLOYMENT</div></div>
+        <div class="fg adm-edit-emp-fields">
+          <label>Contact Number</label>
+          <input class="fc" name="cp_number" type="tel" placeholder="e.g. 0917 123 4567" maxlength="20" />
+        </div>
+        <div class="fg adm-edit-emp-fields">
+          <label>Date Hired</label>
+          <input class="fc" name="date_hired" type="date" />
+        </div>
         <!-- Government IDs -->
         <div class="adm-edit-emp-fields" style="grid-column:1/-1;margin:8px 0 4px;"><div style="font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em;">GOVERNMENT ID NUMBERS</div></div>
         <div class="fg adm-edit-emp-fields">
@@ -771,6 +830,34 @@
         <div class="adm-modal-actions" style="justify-content:space-between;">
           <button type="button" id="archive-user-button" class="btn btn-red" onclick="toggleArchiveCurrentUser()">Archive User</button>
           <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── TRANSFER REQUEST MODAL ── -->
+  <div id="transfer-request-modal" class="adm-modal-backdrop" style="display:none;">
+    <div class="adm-modal-card" style="width:min(480px,100%);">
+      <div class="adm-modal-head">
+        <h3>New Transfer Request</h3>
+        <button class="btn btn-close-x" type="button" onclick="closeTransferRequestModal()" title="Close">&#x2715;</button>
+      </div>
+      <form id="transfer-request-form" class="adm-modal-form" style="grid-template-columns:1fr;" onsubmit="submitTransferRequest(event)">
+        <div class="fg" style="margin:0;">
+          <label>Employee</label>
+          <select class="fc" name="employee_id" id="transfer-request-employee"></select>
+        </div>
+        <div class="fg" style="margin:0;">
+          <label>Transfer To Branch</label>
+          <select class="fc" name="to_branch_id" id="transfer-request-to-branch"></select>
+        </div>
+        <div class="fg" style="margin:0;">
+          <label>Remarks (Optional)</label>
+          <textarea class="fc" name="remarks" rows="3" maxlength="300" placeholder="Reason for the transfer request"></textarea>
+        </div>
+        <p id="transfer-request-feedback" class="adm-feedback"></p>
+        <div class="adm-modal-actions">
+          <button type="submit" class="btn btn-primary">Submit Request</button>
         </div>
       </form>
     </div>

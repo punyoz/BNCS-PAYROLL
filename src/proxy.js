@@ -56,6 +56,8 @@ const API_MODULES = [
   ["/api/legacy-auth/update-profile", "profile"],
   ["/api/admin/users", "user_management"],
   ["/api/admin/employees", "employee_information"],
+  ["/api/admin/employee-info", "employee_info_readonly"],
+  ["/api/admin/transfer-requests", "transfer_requests"],
   ["/api/admin/attendance", "attendance"],
   ["/api/admin/audit-logs", "audit_logs"],
   ["/api/admin/branch-employees", "branch_assignment"],

@@ -12,6 +12,8 @@ const SA_PAGES = {
   'sa-attendance':   'Attendance',
   'sa-branches':     'Branch Management',
   'sa-roles':        'Roles & Permissions',
+  'sa-employee-info':'Employee Info',
+  'sa-transfer-requests':'Transfer Requests',
   'sa-branch-assign':'Branch Assignment',
   'sa-maintenance':  'System Maintenance',
   'sa-config':       'System Configuration',
@@ -29,6 +31,9 @@ let saAuditModule = 'all';
 let saAuditAction = 'all';
 let saBranches = [];
 let saAssignBranches = [];
+let saEmployeeInfoRows = [];
+let saTransferPending = [];
+let saTransferHistory = [];
 let saReportData = [];
 let saAttendanceData = null;
 let saAttPaginator = null;
@@ -66,6 +71,8 @@ function saNav(pageId, navEl) {
   else if (pageId === 'sa-attendance') loadSAAttendanceData();
   else if (pageId === 'sa-branches')   loadSABranches();
   else if (pageId === 'sa-roles')      loadSAUsers();
+  else if (pageId === 'sa-employee-info') loadSAEmployeeInfo();
+  else if (pageId === 'sa-transfer-requests') loadSATransferRequests();
   else if (pageId === 'sa-branch-assign') loadSABranchAssignment();
   else if (pageId === 'sa-maintenance') {
     loadSASystemData();
@@ -1201,6 +1208,152 @@ window.addEventListener('sacs-auth-context-changed', (event) => {
   const ctx = event?.detail;
   if (ctx?.role === 'super_admin') applySAIdentity();
 });
+
+/* ═══════════════════════════════════════
+   EMPLOYEE INFO (read-only, all branches)
+   ═══════════════════════════════════════ */
+
+async function loadSAEmployeeInfo() {
+  const tbody = document.getElementById('sa-employee-info-table-body');
+  if (tbody) tbody.innerHTML = skeletonRows(6);
+
+  try {
+    if (!saBranches.length) await loadSABranches();
+
+    const response = await fetch('/api/admin/employee-info');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load employee info.');
+
+    saEmployeeInfoRows = data.employees || [];
+    renderSAEmployeeInfo();
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function renderSAEmployeeInfo() {
+  const tbody = document.getElementById('sa-employee-info-table-body');
+  if (!tbody) return;
+
+  if (!saEmployeeInfoRows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--t3);">No employee records found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = saEmployeeInfoRows.map((row) => `
+    <tr>
+      <td>${escapeHtml(row.full_name || '—')}</td>
+      <td>${escapeHtml(row.cp_number || '—')}</td>
+      <td>${escapeHtml(row.branch_id ? (saBranches.find((b) => b.id === row.branch_id)?.name || row.branch_id) : '—')}</td>
+      <td>${escapeHtml(row.position || '—')}</td>
+      <td>${escapeHtml(row.status || '—')}</td>
+      <td>${escapeHtml(row.date_hired || '—')}</td>
+    </tr>
+  `).join('');
+}
+
+/* ═══════════════════════════════════════
+   TRANSFER REQUESTS (Super Admin: review + decide)
+   ═══════════════════════════════════════ */
+
+async function loadSATransferRequests() {
+  const listEl = document.getElementById('sa-transfer-pending');
+  if (listEl) listEl.innerHTML = skeletonCards(3);
+
+  try {
+    if (!saBranches.length) await loadSABranches();
+
+    const response = await fetch('/api/admin/transfer-requests');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load transfer requests.');
+
+    saTransferPending = data.pending_requests || [];
+    saTransferHistory = data.history_requests || [];
+
+    renderSATransferPending();
+    renderSATransferHistory();
+  } catch (error) {
+    if (listEl) listEl.innerHTML = `<div class="approval-card"><div class="approval-card-body"><div class="approval-card-meta" style="color:var(--red);">${escapeHtml(error.message)}</div></div></div>`;
+  }
+}
+
+function saBranchName(branchId) {
+  return saBranches.find((b) => b.id === branchId)?.name || branchId || '—';
+}
+
+function renderSATransferPending() {
+  const el = document.getElementById('sa-transfer-pending');
+  if (!el) return;
+
+  if (!saTransferPending.length) {
+    el.innerHTML = '<div class="approval-card"><div class="approval-card-body"><div class="approval-card-meta" style="color:var(--t3);">No pending transfer requests.</div></div></div>';
+    return;
+  }
+
+  el.innerHTML = saTransferPending.map((req) => `
+    <div class="approval-card">
+      <div class="approval-card-body">
+        <div class="approval-card-name">${escapeHtml(req.employee_name || req.employee_id || 'Unknown')}</div>
+        <div class="approval-card-meta">
+          <strong>${escapeHtml(saBranchName(req.from_branch_id))}</strong> &rarr; <strong>${escapeHtml(saBranchName(req.to_branch_id))}</strong>
+        </div>
+        ${req.remarks ? `<div class="approval-card-meta" style="margin-top:4px;">${escapeHtml(req.remarks)}</div>` : ''}
+      </div>
+      <div class="approval-card-actions">
+        <button class="btn btn-primary" style="background:var(--green);border-color:var(--green);" onclick="saTransferAction('${req.id}','approve')">Approve</button>
+        <button class="btn btn-red" onclick="saTransferAction('${req.id}','reject')">Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function saTransferAction(id, action) {
+  const confirmed = action === 'approve'
+    ? await confirmApproveAction('approve this transfer request', 'The employee will be moved to the destination branch immediately.')
+    : await confirmDestructiveAction('reject this transfer request', 'This decision cannot be undone.');
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch('/api/admin/transfer-requests', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Action failed.');
+
+    pushNotification(
+      `Transfer ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+      `Transfer request has been ${action === 'approve' ? 'approved' : 'rejected'}.`,
+      action === 'approve' ? 'success' : 'info',
+    );
+    loadSATransferRequests();
+  } catch (err) {
+    pushNotification('Error', err.message, 'error');
+  }
+}
+
+function renderSATransferHistory() {
+  const tbody = document.getElementById('sa-transfer-history-body');
+  if (!tbody) return;
+
+  if (!saTransferHistory.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--t3);">No transfer history yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = saTransferHistory.map((req) => `
+    <tr>
+      <td>${escapeHtml(req.employee_name || req.employee_id || 'Unknown')}</td>
+      <td>${escapeHtml(saBranchName(req.from_branch_id))}</td>
+      <td>${escapeHtml(saBranchName(req.to_branch_id))}</td>
+      <td>${req.status === 'approved' ? '<span class="badge bg"><span class="bd"></span>Approved</span>' : '<span class="badge br"><span class="bd"></span>Rejected</span>'}</td>
+      <td>${escapeHtml(req.remarks || '—')}</td>
+      <td>${req.created_at ? new Date(req.created_at).toLocaleDateString() : '—'}</td>
+      <td>${req.reviewed_at ? new Date(req.reviewed_at).toLocaleDateString() : '—'}</td>
+    </tr>
+  `).join('');
+}
 
 /* ═══════════════════════════════════════
    SA BRANCH ASSIGNMENT
