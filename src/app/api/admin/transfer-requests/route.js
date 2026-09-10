@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { sanitizeError } from "@/lib/api-error";
 import { normalizeText } from "@/lib/auth/normalize";
 import { appendAuditLog } from "@/lib/audit/store";
-import { requirePermission, denyForeignBranch, scopeListToBranch } from "@/lib/rbac/guard";
+import { requirePermission, denyForeignBranch } from "@/lib/rbac/guard";
 import {
   readAllTransferRequests,
   insertTransferRequest,
   updateTransferRequestStatus,
+  getEmployeeCurrentBranch,
 } from "@/lib/transfer-requests/store";
 
 export async function GET(request) {
@@ -16,9 +17,16 @@ export async function GET(request) {
   try {
     const allRequests = await readAllTransferRequests();
 
-    // Super Admin sees every request; Admin sees only the ones it raised out
-    // of its own branch.
-    const scoped = scopeListToBranch(allRequests, guard, (r) => r.from_branch_id);
+    // Super Admin sees every request. Admin sees requests out of its own
+    // branch, plus any it raised itself even when from_branch_id is null
+    // (assigning a previously-unassigned employee) — scopeListToBranch alone
+    // would drop those since null never equals a branch id.
+    const scoped = guard.branchExempt
+      ? allRequests
+      : allRequests.filter(
+          (r) => String(r.from_branch_id || "") === String(guard.branchId || "")
+            || r.requested_by === guard.userId,
+        );
 
     const pending = scoped.filter((r) => r.status === "pending");
     const history = scoped.filter((r) => r.status !== "pending");
@@ -50,13 +58,12 @@ export async function POST(request) {
       );
     }
 
-    // The request always originates from the caller's own branch — Admin can
-    // never name a foreign from_branch_id; Super Admin (branch-exempt) must
-    // name one explicitly since it has no single "own branch".
-    const fromBranchId = guard.branchExempt ? normalizeText(body.from_branch_id) : guard.branchId;
-    if (!fromBranchId) {
-      return NextResponse.json({ error: "from_branch_id is required." }, { status: 400 });
-    }
+    // from_branch_id is the employee's ACTUAL current branch, not whatever
+    // the caller claims — looked up server-side so it's correct whether the
+    // employee already belongs to a branch or has never been assigned one
+    // (null). Admin may only touch an employee currently in their own branch
+    // or not yet assigned to any; Super Admin (branch-exempt) may reach any.
+    const fromBranchId = await getEmployeeCurrentBranch(employeeId);
 
     const foreignBranch = denyForeignBranch(guard, fromBranchId);
     if (foreignBranch) return foreignBranch;

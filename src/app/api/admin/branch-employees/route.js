@@ -28,24 +28,41 @@ async function fetchBranchMap(supabase) {
   return map;
 }
 
+/**
+ * Current branch, sourced from profiles.branch_id — the single source of
+ * truth every other route reads (see 20260903_rbac_branch_scoping.sql).
+ * Admin/Super Admin branch moves now flow through transfer_requests, whose
+ * approval trigger updates profiles.branch_id AND profiles.updated_at, so
+ * that timestamp doubles as "when did this employee's branch last change"
+ * without a second query. employee_branch_assignments (assigned_by) is kept
+ * as best-effort legacy metadata only — it's no longer written to for
+ * transfer-requests-driven moves, so it may be stale or absent for those;
+ * the branch/branch_label fields above are the ones that stay correct.
+ */
 async function fetchAllBranchAssignments(supabase, branchMap) {
-  const result = await supabase
-    .from("employee_branch_assignments")
-    .select("user_id, branch_id, assigned_by, assigned_at");
+  const [profilesResult, legacyResult] = await Promise.all([
+    supabase.from("profiles").select("id, branch_id, updated_at"),
+    supabase.from("employee_branch_assignments").select("user_id, assigned_by"),
+  ]);
 
-  if (result.error) {
-    throw new Error(`Failed to fetch branch assignments: ${result.error.message}`);
+  if (profilesResult.error) {
+    throw new Error(`Failed to fetch profiles: ${profilesResult.error.message}`);
   }
 
+  const assignedByMap = new Map(
+    (legacyResult.data || []).map((row) => [row.user_id, row.assigned_by]),
+  );
+
   const assignments = {};
-  (result.data || []).forEach((row) => {
+  (profilesResult.data || []).forEach((row) => {
+    if (!row.branch_id) return;
     const branch = branchMap.get(row.branch_id);
-    assignments[row.user_id] = {
+    assignments[row.id] = {
       branch: row.branch_id,
       branch_label: branch?.name || null,
       branch_status: branch?.status || null,
-      assigned_by: row.assigned_by,
-      assigned_at: row.assigned_at,
+      assigned_by: assignedByMap.get(row.id) || null,
+      assigned_at: row.updated_at,
     };
   });
   return assignments;

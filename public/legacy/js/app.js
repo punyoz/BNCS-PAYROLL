@@ -1259,6 +1259,52 @@ function skeletonCards(count = 3) {
   `).join('');
 }
 
+/**
+ * Shared, stale-time-capped cache for /api/admin/branches, mirroring
+ * listUsersCached() on the server (src/lib/auth/users-cache.js) — every
+ * portal's branch-assign, transfer-requests, and employee tables were each
+ * independently re-fetching the same rarely-changing list. Concurrent
+ * callers share one in-flight request; a failed fetch is never cached.
+ */
+let __branchesCache = null;   // { branches, expiresAt }
+let __branchesInFlight = null;
+const BRANCHES_CACHE_TTL_MS = 60_000;
+
+function invalidateBranchesCache() {
+  __branchesCache = null;
+  __branchesInFlight = null;
+}
+
+async function fetchBranchesCached({ activeOnly = true } = {}) {
+  if (__branchesCache && __branchesCache.expiresAt > Date.now()) {
+    return filterBranches(__branchesCache.branches, activeOnly);
+  }
+
+  if (!__branchesInFlight) {
+    __branchesInFlight = fetch('/api/admin/branches')
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load branches.'))))
+      .then((data) => {
+        const branches = data.branches || [];
+        __branchesCache = { branches, expiresAt: Date.now() + BRANCHES_CACHE_TTL_MS };
+        return branches;
+      })
+      .catch((err) => {
+        __branchesCache = null;
+        throw err;
+      })
+      .finally(() => {
+        __branchesInFlight = null;
+      });
+  }
+
+  const branches = await __branchesInFlight;
+  return filterBranches(branches, activeOnly);
+}
+
+function filterBranches(branches, activeOnly) {
+  return activeOnly ? branches.filter((b) => b.status === 'Active') : branches;
+}
+
 function attachSidebarSpotlight(sidebar) {
   if (!sidebar) return;
   sidebar.addEventListener('mousemove', (e) => {

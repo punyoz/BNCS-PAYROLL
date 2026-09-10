@@ -12,7 +12,6 @@ const ADMIN_PAGES = {
   'adm-attendance':   'Attendance',
   'adm-audit-logs':   'Audit Logs',
   'adm-users':        'User Management',
-  'adm-employee-info':'Employee Info',
   'adm-transfer-requests':'Transfer Requests',
   'adm-branch-assign':'Branch Assignment',
   'adm-maintenance':  'System Maintenance',
@@ -38,9 +37,6 @@ let userRoleFilter = 'all';
 let userSearch = '';
 let currentEditingUser = null;
 let usersPaginator = null;
-
-/* ── EMPLOYEE INFO STATE ── */
-let employeeInfoRows = [];
 
 /* ── TRANSFER REQUESTS STATE ── */
 let adminTransferPending = [];
@@ -100,10 +96,6 @@ function adminNav(pageId, navEl) {
 
   if (pageId === 'adm-users') {
     loadUsers();
-  }
-
-  if (pageId === 'adm-employee-info') {
-    loadEmployeeInfo();
   }
 
   if (pageId === 'adm-transfer-requests') {
@@ -1177,7 +1169,7 @@ function renderUsers(users) {
   if (!tbody) return;
 
   if (!users.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="color:var(--t3);">No users found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="color:var(--t3);">No users found.</td></tr>`;
     return;
   }
 
@@ -1195,6 +1187,11 @@ function renderUsers(users) {
     const typeText = user.employee_type ? escapeHtml(user.employee_type) : '—';
     const typeClass = user.employee_type === 'Non-Teaching' ? 'ba' : (user.employee_type ? 'bt2' : '');
     const empIdText = user.employee_id ? escapeHtml(user.employee_id) : '—';
+    const cpNumberText = user.cp_number ? escapeHtml(user.cp_number) : '—';
+    const branchText = user.branch_id
+      ? escapeHtml(admAssignBranches.find((b) => b.id === user.branch_id)?.name || user.branch_id)
+      : '—';
+    const dateHiredText = user.date_hired ? escapeHtml(user.date_hired) : '—';
 
     return `
       <tr>
@@ -1208,6 +1205,9 @@ function renderUsers(users) {
         <td><span class="badge ${badgeClass}">${escapeHtml(getRoleLabel(role))}</span></td>
         <td>${typeClass ? `<span class="badge ${typeClass}">${typeText}</span>` : `<span style="color:var(--t3);">—</span>`}</td>
         <td class="mn">${empIdText}</td>
+        <td class="mn">${cpNumberText}</td>
+        <td class="mn">${branchText}</td>
+        <td class="mn" style="font-size:11px;">${dateHiredText}</td>
         <td class="mn" style="font-size:11px;">${escapeHtml(lastLogin)}</td>
         <td><span class="badge ${statusClass}"><span class="bd"></span>${statusText}</span></td>
         <td><button class="btn btn-outline" style="font-size:11px;padding:5px 11px;" onclick="openEditUserModal('${safeId}')">Edit</button></td>
@@ -1240,13 +1240,15 @@ function setUserSearch(value) {
 
 async function loadUsers() {
   const tbody = document.getElementById('adm-users-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(8);
+  if (tbody) tbody.innerHTML = skeletonRows(11);
 
   try {
-    const [usersRes, empRes] = await Promise.all([
+    const [usersRes, empRes, branches] = await Promise.all([
       fetch('/api/admin/users', { method: 'GET' }),
       fetch('/api/admin/employees', { method: 'GET' }),
+      fetchBranchesCached().catch(() => admAssignBranches),
     ]);
+    admAssignBranches = branches;
     const usersPayload = await usersRes.json();
     if (!usersRes.ok) throw new Error(usersPayload.error || 'Failed to load users');
 
@@ -1261,7 +1263,7 @@ async function loadUsers() {
     renderFilteredUsers();
   } catch (error) {
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="8" style="color:#E85555;">${escapeHtml(error.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="color:#E85555;">${escapeHtml(error.message)}</td></tr>`;
     }
   }
 }
@@ -1603,47 +1605,6 @@ async function submitEditUser(event) {
 }
 
 /* ═══════════════════════════════════════
-   EMPLOYEE INFO (read-only)
-   ═══════════════════════════════════════ */
-
-async function loadEmployeeInfo() {
-  const tbody = document.getElementById('adm-employee-info-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(6);
-
-  try {
-    const response = await fetch('/api/admin/employee-info');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed to load employee info.');
-
-    employeeInfoRows = data.employees || [];
-    renderEmployeeInfo();
-  } catch (error) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#E85555;">${escapeHtml(error.message)}</td></tr>`;
-  }
-}
-
-function renderEmployeeInfo() {
-  const tbody = document.getElementById('adm-employee-info-table-body');
-  if (!tbody) return;
-
-  if (!employeeInfoRows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--t3);">No employee records found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = employeeInfoRows.map((row) => `
-    <tr>
-      <td>${escapeHtml(row.full_name || '—')}</td>
-      <td>${escapeHtml(row.cp_number || '—')}</td>
-      <td>${escapeHtml(row.branch_id ? (admAssignBranches.find((b) => b.id === row.branch_id)?.name || row.branch_id) : '—')}</td>
-      <td>${escapeHtml(row.position || '—')}</td>
-      <td>${escapeHtml(row.status || '—')}</td>
-      <td>${escapeHtml(row.date_hired || '—')}</td>
-    </tr>
-  `).join('');
-}
-
-/* ═══════════════════════════════════════
    TRANSFER REQUESTS (Admin: create + view own)
    ═══════════════════════════════════════ */
 
@@ -1652,13 +1613,7 @@ async function loadAdminTransferRequests() {
   if (tbody) tbody.innerHTML = skeletonRows(6);
 
   try {
-    if (!admAssignBranches.length) {
-      const branchRes = await fetch('/api/admin/branches');
-      if (branchRes.ok) {
-        const bd = await branchRes.json();
-        admAssignBranches = (bd.branches || []).filter((b) => b.status === 'Active');
-      }
-    }
+    admAssignBranches = await fetchBranchesCached();
     if (!allUsers.length) {
       await loadUsers();
     }
@@ -2225,11 +2180,7 @@ async function loadBranchAssignment() {
   if (tbody) tbody.innerHTML = skeletonRows(7);
 
   try {
-    const [branchRes] = await Promise.allSettled([fetch('/api/admin/branches')]);
-    if (branchRes.status === 'fulfilled' && branchRes.value.ok) {
-      const bd = await branchRes.value.json();
-      admAssignBranches = (bd.branches || []).filter((b) => b.status === 'Active');
-    }
+    admAssignBranches = await fetchBranchesCached().catch(() => admAssignBranches);
     renderBranchFilterUI();
 
     const response = await fetch('/api/admin/branch-employees', { method: 'GET' });
@@ -2307,24 +2258,25 @@ async function submitBranchAssign(event) {
     return;
   }
 
-  const ctx = window.getLegacyAuthContext ? window.getLegacyAuthContext() : null;
-  const assignedBy = String(ctx?.full_name || ctx?.email || 'admin').trim();
-
   try {
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Assigning...';
+    submitBtn.textContent = 'Submitting...';
 
-    const response = await fetch('/api/admin/branch-employees', {
+    // Branch Assignment and Transfer Requests now share one source of truth:
+    // this creates a transfer_requests row pending Super Admin approval,
+    // exactly like the dedicated Transfer Requests page does, instead of
+    // writing branch_id immediately.
+    const response = await fetch('/api/admin/transfer-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, branch_id: branchId, assigned_by: assignedBy }),
+      body: JSON.stringify({ employee_id: userId, to_branch_id: branchId, remarks: 'Branch assignment' }),
     });
 
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Failed to assign branch');
+    if (!response.ok) throw new Error(result.error || 'Failed to submit transfer request');
 
-    if (feedbackEl) { feedbackEl.textContent = `Employee assigned to ${result.branch_label}.`; feedbackEl.className = 'adm-feedback ok'; }
-    window.pushNotification?.('Branch Assigned', `Employee assigned to ${result.branch_label}.`, 'success');
+    if (feedbackEl) { feedbackEl.textContent = 'Transfer request submitted — pending Super Admin approval.'; feedbackEl.className = 'adm-feedback ok'; }
+    window.pushNotification?.('Transfer Requested', 'Waiting for Super Admin approval.', 'success');
     await loadBranchAssignment();
     setTimeout(() => closeBranchAssignModal(), 600);
   } catch (error) {

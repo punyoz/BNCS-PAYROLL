@@ -31,8 +31,10 @@ export function normalizeTransferRequest(row) {
     id: String(row.id || crypto.randomUUID()),
     employee_id: String(row.employee_id || ""),
     employee_name: String(row.employee_name || ""),
-    from_branch_id: String(row.from_branch_id || ""),
-    from_branch_name: String(row.from_branch_name || ""),
+    // Nullable: a request raised for a previously-unassigned employee (the
+    // retired Branch Assignment page's "assign" case) has no prior branch.
+    from_branch_id: row.from_branch_id || null,
+    from_branch_name: row.from_branch_name || null,
     to_branch_id: String(row.to_branch_id || ""),
     to_branch_name: String(row.to_branch_name || ""),
     requested_by: String(row.requested_by || ""),
@@ -46,7 +48,10 @@ export function normalizeTransferRequest(row) {
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-export async function readAllTransferRequests() {
+// limit caps rows returned — this app's real scale doesn't need true
+// offset-based server pagination, but an unbounded SELECT * is still worth
+// capping against unlimited future growth.
+export async function readAllTransferRequests({ limit = 200 } = {}) {
   const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("transfer_requests")
@@ -56,7 +61,8 @@ export async function readAllTransferRequests() {
         "from_branch:branches!transfer_requests_from_branch_id_fkey(name)," +
         "to_branch:branches!transfer_requests_to_branch_id_fkey(name)",
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (error) throw new Error(error.message);
 
@@ -68,6 +74,22 @@ export async function readAllTransferRequests() {
       to_branch_name: row.to_branch?.name,
     }),
   );
+}
+
+// The employee's actual current branch (nullable) — used by the POST route
+// to derive from_branch_id server-side instead of trusting the caller's
+// guard.branchId blindly, which is required to also cover assigning a
+// currently-unassigned employee (no branch to derive at all).
+export async function getEmployeeCurrentBranch(employeeId) {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("branch_id")
+    .eq("id", employeeId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data?.branch_id || null;
 }
 
 // ─── Insert ───────────────────────────────────────────────────────────────────

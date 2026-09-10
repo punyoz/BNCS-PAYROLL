@@ -88,6 +88,7 @@ function shapeEmployee(user, profile) {
     // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql).
     cp_number: normalizeText(profile?.cp_number, ""),
     date_hired: normalizeText(profile?.date_hired, ""),
+    branch_id: profile?.branch_id || meta.branch_id || null,
   };
 }
 
@@ -112,7 +113,7 @@ export async function GET(request) {
     if (userIds.length) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id,email,full_name,employee_id,employee_type,position,employee_status,cp_number,date_hired")
+        .select("id,email,full_name,employee_id,employee_type,position,employee_status,cp_number,date_hired,branch_id")
         .in("id", userIds);
       (profiles || []).forEach((p) => profileMap.set(p.id, p));
     }

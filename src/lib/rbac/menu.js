@@ -96,7 +96,6 @@ const SECTION_OVERRIDE = {
   hr: {
     user_management: "Employees",
     employee_information: "Employees",
-    employee_info_readonly: "Employees",
     branch_assignment: "Employees",
   },
   accountant: {

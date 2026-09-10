@@ -150,7 +150,7 @@
          PAGE: Employee Records
     ────────────────────────────── -->
     <div class="page" id="hr-employees">
-      <div class="ph"><h2>User Management</h2><p>Manage employee profiles, employment information, and status</p></div>
+      <div class="ph"><h2>Employee Information</h2><p>Manage employee profiles, contact details, branch, and employment information</p></div>
       <div class="chips" id="hr-emp-filter-chips">
         <div class="chip active" data-filter="all" onclick="setHrEmployeeFilter('all')">All (0)</div>
         <div class="chip" data-filter="teaching" onclick="setHrEmployeeFilter('teaching')">Teaching (0)</div>
@@ -162,54 +162,11 @@
       </div>
       <div class="sh"><span class="stitle">Staff List</span><span class="sp"></span><button class="btn btn-primary" onclick="openHrAddEmployeeModal()">+ Add Employee</button></div>
       <div class="tw"><table>
-        <thead><tr><th>Employee</th><th>ID</th><th>Type</th><th>Position</th><th>Status</th><th>Email</th><th></th></tr></thead>
+        <thead><tr><th>Employee</th><th>ID</th><th>Type</th><th>Position</th><th>Contact Number</th><th>Branch</th><th>Date Hired</th><th>Status</th><th>Email</th><th></th></tr></thead>
         <tbody id="hr-employee-table-body">
-          <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td></tr>
         </tbody>
       </table></div>
       <div class="pg-bar" id="hr-emp-pg"></div>
-    </div>
-
-    <!-- ──────────────────────────────
-         PAGE: Employee Information
-    ────────────────────────────── -->
-    <div class="page" id="hr-employee-info">
-      <div class="ph"><h2>Employee Information Management</h2><p>Maintain employee records, supporting documents, and employment details</p></div>
-      <div class="adm-employee-controls">
-        <input id="hr-info-search" class="fc" type="text" placeholder="Search employee name, ID, or email" oninput="setHrInfoSearch(this.value)" />
-      </div>
-      <div class="tw"><table>
-        <thead><tr><th>Employee</th><th>ID</th><th>Role</th><th>Type</th><th>Position</th><th>Status</th><th>Date of Birth</th><th>Email</th></tr></thead>
-        <tbody id="hr-info-table-body">
-          <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
-        </tbody>
-      </table></div>
-      <div class="pg-bar" id="hr-info-pg"></div>
-    </div>
-
-    <!-- ──────────────────────────────
-         PAGE: Employee Directory (read-only)
-    ────────────────────────────── -->
-    <div class="page" id="hr-employee-directory">
-      <div class="ph"><h2>Employee Directory</h2><p>Read-only summary of employee contact and employment details for your branch</p></div>
-
-      <div class="card">
-        <div class="tw"><table>
-          <thead><tr><th>Name</th><th>Contact Number</th><th>Branch</th><th>Position</th><th>Status</th><th>Date Hired</th></tr></thead>
-          <tbody id="hr-employee-directory-table-body">
-            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
-            <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
-          </tbody>
-        </table></div>
-      </div>
     </div>
 
     <!-- ──────────────────────────────

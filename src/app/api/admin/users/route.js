@@ -36,6 +36,12 @@ function shapeUser(user, profile) {
     archived: Boolean(metadata.archived),
     last_sign_in: user.last_sign_in_at || null,
     created_at: user.created_at || null,
+    // Live on profiles, not user_metadata (see
+    // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql).
+    // Displayed on the merged employee table; not editable from this route's
+    // own modal (sa-admin-user-modal covers account fields only).
+    cp_number: normalizeText(profile?.cp_number, ""),
+    date_hired: normalizeText(profile?.date_hired, ""),
   };
 }
 
@@ -70,7 +76,7 @@ async function fetchAllUsers(supabase) {
   if (userIds.length) {
     const profileResult = await supabase
       .from("profiles")
-      .select("id,email,full_name,role,branch_id")
+      .select("id,email,full_name,role,branch_id,cp_number,date_hired")
       .in("id", userIds);
 
     if (!profileResult.error) {

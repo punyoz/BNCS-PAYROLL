@@ -69,18 +69,19 @@ export const MODULES = {
   },
   employee_information: {
     order: 4, label: "Employee Information", section: "Management",
-    page: { hr: "hr-employee-info" },
+    // Merged with user_management's page — HR's full-CRUD staff table
+    // (hr-employees) now carries the extra columns (contact number, branch
+    // name, date hired) that used to live on a separate read-only page.
+    page: { hr: "hr-employees" },
   },
-  // Read-only summary view (id, full_name, cp_number, branch_id, position,
-  // status, date_hired) backed by public.employee_info_view — separate from
-  // employee_information's full CRUD table above.
+  // Backs public.employee_info_view (id, full_name, cp_number, branch_id,
+  // branch_name, position, status, date_hired). No dedicated screen for any
+  // role — the same data now lives as extra columns on each role's existing
+  // full-CRUD employee table. Grants are kept so /api/admin/employee-info
+  // and the view stay reachable as read-only infrastructure.
   employee_info_readonly: {
     order: 4.5, label: "Employee Info", section: "Management",
-    page: { admin: "adm-employee-info", super_admin: "sa-employee-info", hr: "hr-employee-directory" },
-    // HR already owns a full-CRUD "Employee Information" page for the same
-    // module (employee_information above) — a distinct label keeps the two
-    // from reading as duplicates in HR's sidebar.
-    labelOverride: { hr: "Employee Directory" },
+    page: {},
   },
   branch_management: {
     order: 5, label: "Branch Management", section: "Management",

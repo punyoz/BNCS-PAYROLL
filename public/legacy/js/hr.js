@@ -9,9 +9,7 @@
 /* ── PAGE MAP ── */
 const HR_PAGES = {
   'hr-dashboard':     'HR Dashboard',
-  'hr-employees':     'User Management',
-  'hr-employee-info': 'Employee Information',
-  'hr-employee-directory': 'Employee Directory',
+  'hr-employees':     'Employee Information',
   'hr-branch-assign': 'Branch Assignment',
   'hr-attendance':    'Attendance Monitoring',
   'hr-leaves':        'Leave Approval',
@@ -22,7 +20,6 @@ const HR_PAGES = {
 let hrAllEmployees = [];
 let hrEmployeeFilter = 'all';
 let hrEmployeeSearch = '';
-let hrInfoSearch = '';
 let hrAttendanceLogs = [];
 let hrLeaveRequests = [];
 let hrLeaveHistory = [];
@@ -39,7 +36,6 @@ let hrBranchPaginator = null;
 let hrBranches = [];
 
 let hrEmpPaginator = null;
-let hrInfoPaginator = null;
 let hrAttPaginator = null;
 let hrLeaveHistPaginator = null;
 let hrRepPaginator = null;
@@ -64,8 +60,6 @@ function hrNav(pageId, navEl) {
 
   if (pageId === 'hr-dashboard') loadHRDashboard();
   else if (pageId === 'hr-employees') loadHREmployees();
-  else if (pageId === 'hr-employee-info') loadHREmployeeInfo();
-  else if (pageId === 'hr-employee-directory') loadHREmployeeDirectory();
   else if (pageId === 'hr-branch-assign') loadHrBranchAssignment();
   else if (pageId === 'hr-attendance') loadHRAttendance();
   else if (pageId === 'hr-leaves') loadHRLeaves();
@@ -159,11 +153,15 @@ function renderHRRecentActivity(activity) {
 /* ── EMPLOYEE RECORDS ── */
 async function loadHREmployees() {
   const tbody = document.getElementById('hr-employee-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(7);
+  if (tbody) tbody.innerHTML = skeletonRows(10);
 
   try {
     const includeArchived = hrEmployeeFilter === 'archived';
-    const res = await fetch(`/api/hr/employees${includeArchived ? '?archived=true' : ''}`);
+    const [res, branches] = await Promise.all([
+      fetch(`/api/hr/employees${includeArchived ? '?archived=true' : ''}`),
+      fetchBranchesCached({ activeOnly: false }).catch(() => hrBranches),
+    ]);
+    hrBranches = branches;
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to load employees.');
 
@@ -171,7 +169,7 @@ async function loadHREmployees() {
     updateHrEmployeeChips();
     renderHREmployeeTable();
   } catch (err) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:var(--red);">${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="color:var(--red);">${err.message}</td></tr>`;
   }
 }
 
@@ -223,7 +221,7 @@ function renderHREmployeeTable() {
   }
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--t3);">No employees found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="color:var(--t3);">No employees found.</td></tr>';
     return;
   }
 
@@ -234,11 +232,15 @@ function renderHREmployeeTable() {
       renderFn: (rows) => {
         tbody.innerHTML = rows.map((e) => {
           const statusColor = e.employee_status?.toLowerCase() === 'active' ? 'var(--green)' : 'var(--amber)';
+          const branchLabel = e.branch_id ? (hrBranches.find((b) => b.id === e.branch_id)?.name || e.branch_id) : '—';
           return `<tr>
             <td>${e.full_name || '—'}</td>
             <td><code style="font-size:11px;">${e.employee_id || '—'}</code></td>
             <td>${e.employee_type || '—'}</td>
             <td>${e.position || '—'}</td>
+            <td>${e.cp_number || '—'}</td>
+            <td style="font-size:12px;">${branchLabel}</td>
+            <td style="font-size:12px;">${e.date_hired || '—'}</td>
             <td><span class="badge" style="color:${statusColor};background:${statusColor}20;border:1px solid ${statusColor}40;">${e.employee_status || 'Active'}</span></td>
             <td style="font-size:12px;color:var(--t3);">${e.email || '—'}</td>
             <td><button class="btn btn-outline" style="font-size:11px;padding:4px 10px;" onclick="openHrEditEmployeeModal(${JSON.stringify(e).replace(/"/g, '&quot;')})">Edit</button></td>
@@ -399,119 +401,6 @@ async function submitHrEditEmployee(event) {
   } catch (err) {
     if (fb) { fb.textContent = err.message; fb.style.color = 'var(--red)'; }
   }
-}
-
-/* ── EMPLOYEE INFORMATION ── */
-async function loadHREmployeeInfo() {
-  const tbody = document.getElementById('hr-info-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(8);
-
-  try {
-    const res = await fetch('/api/hr/employees?archived=true');
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to load employee info.');
-
-    const all = data.employees || [];
-    renderHRInfoTable(all);
-  } catch (err) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="color:var(--red);">${err.message}</td></tr>`;
-  }
-}
-
-function setHrInfoSearch(val) {
-  hrInfoSearch = String(val || '').toLowerCase().trim();
-  // Re-render using cached data if available
-  const tbody = document.getElementById('hr-info-table-body');
-  if (!tbody) return;
-  const rows = Array.from(tbody.querySelectorAll('tr[data-emp-id]'));
-  rows.forEach((row) => {
-    const text = row.textContent.toLowerCase();
-    row.style.display = !hrInfoSearch || text.includes(hrInfoSearch) ? '' : 'none';
-  });
-}
-
-function renderHRInfoTable(employees) {
-  const tbody = document.getElementById('hr-info-table-body');
-  if (!tbody) return;
-
-  if (!employees.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--t3);">No employees found.</td></tr>';
-    return;
-  }
-
-  if (!hrInfoPaginator) {
-    hrInfoPaginator = createPaginator({
-      id: 'hr-info',
-      pageSize: 15,
-      renderFn: (rows) => {
-        tbody.innerHTML = rows.map((e) => {
-          const archivedBadge = e.archived
-            ? '<span class="badge" style="color:var(--red);background:var(--red-s);border:1px solid var(--red);margin-left:4px;">Archived</span>'
-            : '';
-          return `<tr data-emp-id="${e.id || ''}">
-            <td>${e.full_name || '—'}${archivedBadge}</td>
-            <td><code style="font-size:11px;">${e.employee_id || '—'}</code></td>
-            <td>${e.role || '—'}</td>
-            <td>${e.employee_type || '—'}</td>
-            <td>${e.position || '—'}</td>
-            <td>${e.employee_status || 'Active'}</td>
-            <td style="font-size:12px;">${e.date_of_birth || '—'}</td>
-            <td style="font-size:12px;color:var(--t3);">${e.email || '—'}</td>
-          </tr>`;
-        }).join('');
-      },
-    });
-  }
-
-  hrInfoPaginator.setData(employees);
-}
-
-/* ── EMPLOYEE DIRECTORY (read-only) ── */
-let hrEmployeeDirectoryRows = [];
-
-async function loadHREmployeeDirectory() {
-  const tbody = document.getElementById('hr-employee-directory-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(6);
-
-  try {
-    if (!hrBranches.length) {
-      const branchRes = await fetch('/api/admin/branches');
-      if (branchRes.ok) {
-        const bd = await branchRes.json();
-        hrBranches = (bd.branches || []).filter((b) => b.status === 'Active');
-      }
-    }
-
-    const response = await fetch('/api/admin/employee-info');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed to load employee directory.');
-
-    hrEmployeeDirectoryRows = data.employees || [];
-    renderHREmployeeDirectory();
-  } catch (error) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);">${escapeHtml(error.message)}</td></tr>`;
-  }
-}
-
-function renderHREmployeeDirectory() {
-  const tbody = document.getElementById('hr-employee-directory-table-body');
-  if (!tbody) return;
-
-  if (!hrEmployeeDirectoryRows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--t3);">No employee records found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = hrEmployeeDirectoryRows.map((row) => `
-    <tr>
-      <td>${escapeHtml(row.full_name || '—')}</td>
-      <td>${escapeHtml(row.cp_number || '—')}</td>
-      <td>${escapeHtml(row.branch_id ? (hrBranches.find((b) => b.id === row.branch_id)?.name || row.branch_id) : '—')}</td>
-      <td>${escapeHtml(row.position || '—')}</td>
-      <td>${escapeHtml(row.status || '—')}</td>
-      <td>${escapeHtml(row.date_hired || '—')}</td>
-    </tr>
-  `).join('');
 }
 
 /* ── ATTENDANCE ── */
@@ -1220,11 +1109,7 @@ async function loadHrBranchAssignment() {
   if (tbody) tbody.innerHTML = skeletonRows(7);
 
   try {
-    const [branchRes] = await Promise.allSettled([fetch('/api/admin/branches')]);
-    if (branchRes.status === 'fulfilled' && branchRes.value.ok) {
-      const bd = await branchRes.value.json();
-      hrBranches = (bd.branches || []).filter((b) => b.status === 'Active');
-    }
+    hrBranches = await fetchBranchesCached().catch(() => hrBranches);
     hrRenderBranchFilterUI();
 
     const response = await fetch('/api/admin/branch-employees', { method: 'GET' });

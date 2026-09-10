@@ -12,7 +12,6 @@ const SA_PAGES = {
   'sa-attendance':   'Attendance',
   'sa-branches':     'Branch Management',
   'sa-roles':        'Roles & Permissions',
-  'sa-employee-info':'Employee Info',
   'sa-transfer-requests':'Transfer Requests',
   'sa-branch-assign':'Branch Assignment',
   'sa-maintenance':  'System Maintenance',
@@ -31,7 +30,6 @@ let saAuditModule = 'all';
 let saAuditAction = 'all';
 let saBranches = [];
 let saAssignBranches = [];
-let saEmployeeInfoRows = [];
 let saTransferPending = [];
 let saTransferHistory = [];
 let saReportData = [];
@@ -71,7 +69,6 @@ function saNav(pageId, navEl) {
   else if (pageId === 'sa-attendance') loadSAAttendanceData();
   else if (pageId === 'sa-branches')   loadSABranches();
   else if (pageId === 'sa-roles')      loadSAUsers();
-  else if (pageId === 'sa-employee-info') loadSAEmployeeInfo();
   else if (pageId === 'sa-transfer-requests') loadSATransferRequests();
   else if (pageId === 'sa-branch-assign') loadSABranchAssignment();
   else if (pageId === 'sa-maintenance') {
@@ -410,12 +407,12 @@ async function submitSABranch(event) {
 /* ── ROLES & PERMISSIONS ── */
 async function loadSAUsers() {
   const tbody = document.getElementById('sa-users-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(9);
+  if (tbody) tbody.innerHTML = skeletonRows(11);
 
   try {
-    const [usersRes, branchesRes] = await Promise.allSettled([
+    const [usersRes, branches] = await Promise.allSettled([
       fetch('/api/admin/users'),
-      fetch('/api/admin/branches'),
+      fetchBranchesCached({ activeOnly: false }),
     ]);
 
     if (usersRes.status !== 'fulfilled' || !usersRes.value.ok) {
@@ -425,15 +422,14 @@ async function loadSAUsers() {
     const data = await usersRes.value.json();
     saAllUsers = data.users || [];
 
-    if (branchesRes.status === 'fulfilled' && branchesRes.value.ok) {
-      const branchData = await branchesRes.value.json();
-      saBranches = branchData.branches || saBranches;
+    if (branches.status === 'fulfilled') {
+      saBranches = branches.value;
     }
 
     updateSARoleChips();
     renderSAUsersTable();
   } catch (err) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="color:var(--red);">${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="color:var(--red);">${err.message}</td></tr>`;
   }
 }
 
@@ -501,7 +497,7 @@ function renderSAUsersTable() {
   }
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--t3);">No users found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="color:var(--t3);">No users found.</td></tr>';
     return;
   }
 
@@ -528,6 +524,8 @@ function renderSAUsersTable() {
             : '—';
           const branch = saBranches.find((b) => String(b.id) === String(u.branch_id));
           const branchLabel = u.branch_id ? (branch?.name || 'Unknown') : '—';
+          const cpNumberLabel = u.cp_number || '—';
+          const dateHiredLabel = u.date_hired || '—';
           const actionsCell = `<button class="btn btn-outline" style="font-size:11px;padding:4px 10px;" onclick="openSAAdminUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">Edit</button>`;
           return `<tr>
             <td>${u.full_name || '—'}</td>
@@ -536,6 +534,8 @@ function renderSAUsersTable() {
             <td style="font-size:12px;">${branchLabel}</td>
             <td><code style="font-size:11px;">${u.employee_id || '—'}</code></td>
             <td>${u.employee_type || '—'}</td>
+            <td style="font-size:12px;">${cpNumberLabel}</td>
+            <td style="font-size:12px;">${dateHiredLabel}</td>
             <td><span class="badge" style="color:${statusColor};background:${statusColor}20;border:1px solid ${statusColor}40;">${statusLabel}</span></td>
             <td style="font-size:12px;">${lastLogin}</td>
             <td>${actionsCell}</td>
@@ -1210,49 +1210,6 @@ window.addEventListener('sacs-auth-context-changed', (event) => {
 });
 
 /* ═══════════════════════════════════════
-   EMPLOYEE INFO (read-only, all branches)
-   ═══════════════════════════════════════ */
-
-async function loadSAEmployeeInfo() {
-  const tbody = document.getElementById('sa-employee-info-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(6);
-
-  try {
-    if (!saBranches.length) await loadSABranches();
-
-    const response = await fetch('/api/admin/employee-info');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed to load employee info.');
-
-    saEmployeeInfoRows = data.employees || [];
-    renderSAEmployeeInfo();
-  } catch (error) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);">${escapeHtml(error.message)}</td></tr>`;
-  }
-}
-
-function renderSAEmployeeInfo() {
-  const tbody = document.getElementById('sa-employee-info-table-body');
-  if (!tbody) return;
-
-  if (!saEmployeeInfoRows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--t3);">No employee records found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = saEmployeeInfoRows.map((row) => `
-    <tr>
-      <td>${escapeHtml(row.full_name || '—')}</td>
-      <td>${escapeHtml(row.cp_number || '—')}</td>
-      <td>${escapeHtml(row.branch_id ? (saBranches.find((b) => b.id === row.branch_id)?.name || row.branch_id) : '—')}</td>
-      <td>${escapeHtml(row.position || '—')}</td>
-      <td>${escapeHtml(row.status || '—')}</td>
-      <td>${escapeHtml(row.date_hired || '—')}</td>
-    </tr>
-  `).join('');
-}
-
-/* ═══════════════════════════════════════
    TRANSFER REQUESTS (Super Admin: review + decide)
    ═══════════════════════════════════════ */
 
@@ -1261,7 +1218,7 @@ async function loadSATransferRequests() {
   if (listEl) listEl.innerHTML = skeletonCards(3);
 
   try {
-    if (!saBranches.length) await loadSABranches();
+    saBranches = await fetchBranchesCached({ activeOnly: false }).catch(() => saBranches);
 
     const response = await fetch('/api/admin/transfer-requests');
     const data = await response.json();
@@ -1825,23 +1782,31 @@ async function submitSABranchAssign(event) {
     return;
   }
 
-  const ctx = typeof getLegacyAuthContext === 'function' ? getLegacyAuthContext() : null;
-  const assignedBy = String(ctx?.full_name || ctx?.email || 'super_admin').trim();
-
   try {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Assigning...';
 
-    const response = await fetch('/api/admin/branch-employees', {
+    // Branch Assignment and Transfer Requests share one source of truth
+    // (transfer_requests). Super Admin has no one above them to approve, so
+    // this creates the request and immediately approves it — same table,
+    // same trigger that moves profiles.branch_id, just no waiting.
+    const createRes = await fetch('/api/admin/transfer-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, branch_id: branchId, assigned_by: assignedBy }),
+      body: JSON.stringify({ employee_id: userId, to_branch_id: branchId, remarks: 'Branch assignment' }),
     });
+    const created = await createRes.json();
+    if (!createRes.ok) throw new Error(created.error || 'Failed to assign branch');
 
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Failed to assign branch');
+    const approveRes = await fetch('/api/admin/transfer-requests', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: created.request.id, action: 'approve' }),
+    });
+    const approved = await approveRes.json();
+    if (!approveRes.ok) throw new Error(approved.error || 'Failed to approve branch assignment');
 
-    if (feedbackEl) { feedbackEl.textContent = `Employee assigned to ${result.branch_label}.`; feedbackEl.className = 'adm-feedback ok'; }
+    if (feedbackEl) { feedbackEl.textContent = 'Employee assigned.'; feedbackEl.className = 'adm-feedback ok'; }
     await loadSABranchAssignment();
     setTimeout(() => closeSABranchAssignModal(), 600);
   } catch (error) {

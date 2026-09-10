@@ -16,18 +16,24 @@ function getAdminClient() {
 }
 
 // Read-only: public.employee_info_view (id, full_name, cp_number, branch_id,
-// position, status, date_hired). The service-role key bypasses the view's
-// own RLS (see src/lib/rbac/guard.js's header comment), so branch scoping is
-// applied here in code exactly like every other admin route.
+// branch_name, position, status, date_hired). The service-role key bypasses
+// the view's own RLS (see src/lib/rbac/guard.js's header comment), so branch
+// scoping is applied here in code exactly like every other admin route.
 export async function GET(request) {
   const guard = await requirePermission(request, "employee_info_readonly", "read");
   if (guard.denied) return guard.denied;
 
   try {
+    const url = new URL(request.url);
+    // Not true offset pagination — a generous cap against unbounded growth,
+    // matching this app's real scale (see readAllTransferRequests()).
+    const limit = Math.min(Number(url.searchParams.get("limit")) || 500, 1000);
+
     const supabase = getAdminClient();
     const { data, error } = await supabase
       .from("employee_info_view")
-      .select("id,full_name,cp_number,branch_id,position,status,date_hired");
+      .select("id,full_name,cp_number,branch_id,branch_name,position,status,date_hired")
+      .limit(limit);
 
     if (error) throw new Error(error.message);
 
