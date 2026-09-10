@@ -251,29 +251,7 @@
          PAGE: Transfer Requests
     ────────────────────────────── -->
     <div class="page" id="adm-transfer-requests">
-      <div class="ph"><h2>Transfer Requests</h2><p>Request a branch transfer for an employee in your branch. Super Admin reviews and decides.</p></div>
-
-      <div class="sh" style="margin-bottom:12px;">
-        <span class="stitle">My Transfer Requests</span>
-        <span class="sp"></span>
-        <button class="btn btn-primary" onclick="openTransferRequestModal()">New Transfer Request</button>
-      </div>
-
-      <div class="card">
-        <div class="tw"><table>
-          <thead><tr><th>Employee</th><th>From Branch</th><th>To Branch</th><th>Status</th><th>Remarks</th><th>Requested</th></tr></thead>
-          <tbody id="adm-transfer-requests-table-body">
-            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
-          </tbody>
-        </table></div>
-      </div>
-    </div>
-
-    <!-- ──────────────────────────────
-         PAGE: Branch Assignment
-    ────────────────────────────── -->
-    <div class="page" id="adm-branch-assign">
-      <div class="ph"><h2>Branch Assignment</h2><p>Assign employees to their respective school branch campus</p></div>
+      <div class="ph"><h2>Transfer Requests</h2><p>View employees by branch and request a transfer. Super Admin reviews and decides.</p></div>
 
       <div id="ba-branch-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px;">
         <!-- Rendered dynamically by JS after branches load -->
@@ -295,20 +273,33 @@
       <div class="sh">
         <span class="stitle">Employee Branch List</span>
         <span class="sp"></span>
-        <button class="btn btn-outline" onclick="loadBranchAssignment()">Refresh</button>
+        <button class="btn btn-primary" onclick="openTransferRequestModal()">New Transfer Request</button>
       </div>
 
       <div class="tw"><table>
-        <thead><tr><th>Employee</th><th>Employee ID</th><th>Type</th><th>Position</th><th>Branch</th><th>Assigned At</th><th></th></tr></thead>
+        <thead><tr><th>Employee</th><th>Employee ID</th><th>Type</th><th>Position</th><th>Branch</th><th>Assigned At</th></tr></thead>
         <tbody id="ba-table-body">
-          <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td></tr>
+          <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
+          <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
+          <tr class="sk-row"><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td></tr>
         </tbody>
       </table></div>
       <div class="pg-bar" id="ba-pg"></div>
+
+      <div class="sh" style="margin:20px 0 12px;">
+        <span class="stitle">My Transfer Requests</span>
+        <span class="sp"></span>
+        <button class="btn btn-outline" onclick="loadAdminTransferRequests()">Refresh</button>
+      </div>
+
+      <div class="card">
+        <div class="tw"><table>
+          <thead><tr><th>Employee</th><th>From Branch</th><th>To Branch</th><th>Status</th><th>Remarks</th><th>Requested</th></tr></thead>
+          <tbody id="adm-transfer-requests-table-body">
+            <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
+          </tbody>
+        </table></div>
+      </div>
     </div>
 
     <!-- ──────────────────────────────
@@ -836,31 +827,6 @@
         <p id="transfer-request-feedback" class="adm-feedback"></p>
         <div class="adm-modal-actions">
           <button type="submit" class="btn btn-primary">Submit Request</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ── BRANCH ASSIGNMENT MODAL ── -->
-  <div id="branch-assign-modal" class="adm-modal-backdrop" style="display:none;">
-    <div class="adm-modal-card" style="width:min(480px,100%);">
-      <div class="adm-modal-head">
-        <h3 id="ba-modal-title">Assign Branch</h3>
-        <button class="btn btn-close-x" type="button" onclick="closeBranchAssignModal()" title="Close">&#x2715;</button>
-      </div>
-      <form id="branch-assign-form" class="adm-modal-form" style="grid-template-columns:1fr;" onsubmit="submitBranchAssign(event)">
-        <input type="hidden" name="user_id" />
-        <div class="fg" style="margin:0;">
-          <label>Employee</label>
-          <input class="fc" name="employee_display" readonly style="background:var(--bg3);cursor:default;" />
-        </div>
-        <div class="fg" style="margin:0;">
-          <label>Assign to Branch</label>
-          <select class="fc" name="branch"></select>
-        </div>
-        <p id="ba-modal-feedback" class="adm-feedback"></p>
-        <div class="adm-modal-actions">
-          <button type="submit" class="btn btn-primary">Confirm Assignment</button>
         </div>
       </form>
     </div>

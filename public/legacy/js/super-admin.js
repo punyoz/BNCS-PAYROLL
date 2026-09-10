@@ -13,7 +13,6 @@ const SA_PAGES = {
   'sa-branches':     'Branch Management',
   'sa-roles':        'Roles & Permissions',
   'sa-transfer-requests':'Transfer Requests',
-  'sa-branch-assign':'Branch Assignment',
   'sa-maintenance':  'System Maintenance',
   'sa-config':       'System Configuration',
   'sa-audit':        'Audit & Monitoring',
@@ -41,7 +40,6 @@ let saAuditPaginator = null;
 let saBranchAllEmployees = [];
 let saBranchFilter = 'all';
 let saBranchSearch = '';
-let saCurrentBranchEmployee = null;
 let saBranchPaginator = null;
 
 let saAllRfidDevices = [];
@@ -69,8 +67,7 @@ function saNav(pageId, navEl) {
   else if (pageId === 'sa-attendance') loadSAAttendanceData();
   else if (pageId === 'sa-branches')   loadSABranches();
   else if (pageId === 'sa-roles')      loadSAUsers();
-  else if (pageId === 'sa-transfer-requests') loadSATransferRequests();
-  else if (pageId === 'sa-branch-assign') loadSABranchAssignment();
+  else if (pageId === 'sa-transfer-requests') { loadSABranchAssignment(); loadSATransferRequests(); }
   else if (pageId === 'sa-maintenance') {
     loadSASystemData();
     // Auto-focus the scan field so a HID RFID reader's keystrokes land there
@@ -1640,7 +1637,7 @@ function saRenderBranchTable(employees) {
   if (!tbody) return;
 
   if (!employees.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="color:var(--t3);">No employees found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--t3);">No employees found.</td></tr>`;
     return;
   }
 
@@ -1656,10 +1653,6 @@ function saRenderBranchTable(employees) {
       ? new Date(emp.assigned_at).toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' })
       : '—';
     const typeClass = emp.employee_type === 'Non-Teaching' ? 'ba' : 'bt2';
-    const safeId = String(emp.id || '').replaceAll("'", "\\'");
-    const actionBtn = emp.branch
-      ? `<button class="btn btn-outline" style="font-size:11px;padding:5px 11px;" onclick="openSABranchAssignModal('${safeId}')">Reassign</button>`
-      : `<button class="btn btn-primary" style="font-size:11px;padding:5px 11px;" onclick="openSABranchAssignModal('${safeId}')">Assign</button>`;
 
     return `
       <tr>
@@ -1669,7 +1662,6 @@ function saRenderBranchTable(employees) {
         <td class="mn">${emp.position || '—'}</td>
         <td>${branchCell}</td>
         <td class="mn" style="font-size:11px;">${assignedAt}</td>
-        <td>${actionBtn}</td>
       </tr>
     `;
   }).join('');
@@ -1698,14 +1690,10 @@ function setSABranchSearch(value) {
 
 async function loadSABranchAssignment() {
   const tbody = document.getElementById('sa-ba-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(7);
+  if (tbody) tbody.innerHTML = skeletonRows(6);
 
   try {
-    const [branchRes] = await Promise.allSettled([fetch('/api/admin/branches')]);
-    if (branchRes.status === 'fulfilled' && branchRes.value.ok) {
-      const bd = await branchRes.value.json();
-      saAssignBranches = (bd.branches || []).filter((b) => b.status === 'Active');
-    }
+    saAssignBranches = await fetchBranchesCached().catch(() => saAssignBranches);
 
     const response = await fetch('/api/admin/branch-employees', { method: 'GET' });
     const payload = await response.json();
@@ -1715,67 +1703,54 @@ async function loadSABranchAssignment() {
     saRenderFilteredBranch();
   } catch (error) {
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="7" style="color:var(--red);">${String(error.message || 'Error').replace(/</g,'&lt;')}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);">${String(error.message || 'Error').replace(/</g,'&lt;')}</td></tr>`;
     }
   }
 }
 
-function openSABranchAssignModal(userId) {
+// The per-row "Reassign"/"Assign" button and its modal are retired — the
+// Employee Branch List above is now purely informational. Moving someone is
+// exclusively "New Transfer Request" below, which (for Super Admin) creates
+// a transfer_requests row and immediately approves it in the same step —
+// same table and trigger the Admin-initiated flow uses, just no waiting
+// since Super Admin has no one above them to approve to.
+function openSATransferRequestModal() {
   const modal = document.getElementById('sa-branch-assign-modal');
+  const employeeSelect = document.getElementById('sa-transfer-request-employee');
+  const branchSelect = document.getElementById('sa-transfer-request-branch');
+  if (!modal || !employeeSelect || !branchSelect) return;
+
+  employeeSelect.innerHTML = saBranchAllEmployees
+    .map((e) => `<option value="${String(e.id).replace(/"/g,'&quot;')}">${String(e.full_name || e.employee_id || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</option>`)
+    .join('');
+
+  branchSelect.innerHTML = saAssignBranches
+    .map((b) => `<option value="${String(b.id).replace(/"/g,'&quot;')}">${String(b.name || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</option>`)
+    .join('');
+
   const form = document.getElementById('sa-branch-assign-form');
-  if (!modal || !form) return;
-
-  saCurrentBranchEmployee = saBranchAllEmployees.find((e) => e.id === userId);
-  if (!saCurrentBranchEmployee) {
-    window.alert('Employee not found. Please refresh.');
-    return;
-  }
-
-  const titleEl = document.getElementById('sa-ba-modal-title');
-  if (titleEl) titleEl.textContent = saCurrentBranchEmployee.branch ? 'Reassign Branch' : 'Assign Branch';
-
-  form.elements.user_id.value = saCurrentBranchEmployee.id;
-  form.elements.employee_display.value = `${saCurrentBranchEmployee.full_name} (${saCurrentBranchEmployee.employee_id || 'N/A'})`;
-
-  const branchSelect = form.elements.branch;
-  if (branchSelect) {
-    // Always offer active branches; also include the employee's current branch even if
-    // it has since gone inactive, so reassigning away from it stays possible.
-    const options = [...saAssignBranches];
-    if (saCurrentBranchEmployee.branch && !options.some((b) => b.id === saCurrentBranchEmployee.branch)) {
-      options.push({ id: saCurrentBranchEmployee.branch, name: `${saCurrentBranchEmployee.branch_label || 'Unknown branch'} (Inactive)` });
-    }
-
-    if (options.length) {
-      branchSelect.innerHTML = options.map((b) =>
-        `<option value="${String(b.id).replace(/"/g,'&quot;')}">${String(b.name || '').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}</option>`
-      ).join('');
-    } else {
-      branchSelect.innerHTML = '<option value="" disabled>No branches configured yet.</option>';
-    }
-    if (saCurrentBranchEmployee.branch) branchSelect.value = saCurrentBranchEmployee.branch;
-  }
-
+  form?.reset();
   const feedbackEl = document.getElementById('sa-ba-modal-feedback');
   if (feedbackEl) feedbackEl.textContent = '';
 
   modal.style.display = 'flex';
 }
 
-function closeSABranchAssignModal() {
+function closeSATransferRequestModal() {
   const modal = document.getElementById('sa-branch-assign-modal');
   if (modal) modal.style.display = 'none';
 }
 
-async function submitSABranchAssign(event) {
+async function submitSATransferRequest(event) {
   event.preventDefault();
   const form = event.target;
   const submitBtn = form.querySelector('button[type="submit"]');
   const feedbackEl = document.getElementById('sa-ba-modal-feedback');
   const formData = new FormData(form);
 
-  const userId = String(formData.get('user_id') || '').trim();
-  const branchId = String(formData.get('branch') || '').trim();
+  const userId = String(formData.get('employee_id') || '').trim();
+  const branchId = String(formData.get('to_branch_id') || '').trim();
+  const remarks = String(formData.get('remarks') || '').trim();
 
   if (!userId || !branchId) {
     if (feedbackEl) { feedbackEl.textContent = 'Missing required fields.'; feedbackEl.className = 'adm-feedback err'; }
@@ -1786,17 +1761,13 @@ async function submitSABranchAssign(event) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Assigning...';
 
-    // Branch Assignment and Transfer Requests share one source of truth
-    // (transfer_requests). Super Admin has no one above them to approve, so
-    // this creates the request and immediately approves it — same table,
-    // same trigger that moves profiles.branch_id, just no waiting.
     const createRes = await fetch('/api/admin/transfer-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: userId, to_branch_id: branchId, remarks: 'Branch assignment' }),
+      body: JSON.stringify({ employee_id: userId, to_branch_id: branchId, remarks: remarks || 'Branch assignment' }),
     });
     const created = await createRes.json();
-    if (!createRes.ok) throw new Error(created.error || 'Failed to assign branch');
+    if (!createRes.ok) throw new Error(created.error || 'Failed to submit transfer request');
 
     const approveRes = await fetch('/api/admin/transfer-requests', {
       method: 'PATCH',
@@ -1808,7 +1779,8 @@ async function submitSABranchAssign(event) {
 
     if (feedbackEl) { feedbackEl.textContent = 'Employee assigned.'; feedbackEl.className = 'adm-feedback ok'; }
     await loadSABranchAssignment();
-    setTimeout(() => closeSABranchAssignModal(), 600);
+    await loadSATransferRequests();
+    setTimeout(() => closeSATransferRequestModal(), 600);
   } catch (error) {
     if (feedbackEl) { feedbackEl.textContent = error.message; feedbackEl.className = 'adm-feedback err'; }
   } finally {
@@ -2126,9 +2098,9 @@ window.toggleArchiveSAAdminUser = toggleArchiveSAAdminUser;
 window.setSABranchFilter = setSABranchFilter;
 window.setSABranchSearch = setSABranchSearch;
 window.loadSABranchAssignment = loadSABranchAssignment;
-window.openSABranchAssignModal = openSABranchAssignModal;
-window.closeSABranchAssignModal = closeSABranchAssignModal;
-window.submitSABranchAssign = submitSABranchAssign;
+window.openSATransferRequestModal = openSATransferRequestModal;
+window.closeSATransferRequestModal = closeSATransferRequestModal;
+window.submitSATransferRequest = submitSATransferRequest;
 window.onSABranchRegionChange = onSABranchRegionChange;
 window.onSABranchProvinceChange = onSABranchProvinceChange;
 window.onSABranchCityChange = onSABranchCityChange;

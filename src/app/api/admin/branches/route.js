@@ -5,7 +5,7 @@ import { normalizeText } from "@/lib/auth/normalize";
 import { appendAuditLog } from "@/lib/audit/store";
 import { readSession } from "@/lib/rbac/session";
 import { requirePermission } from "@/lib/rbac/guard";
-import { isBranchExempt } from "@/lib/rbac/permissions";
+import { can, isBranchExempt } from "@/lib/rbac/permissions";
 
 const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -32,9 +32,11 @@ function shapeBranch(row) {
 }
 
 export async function GET(request) {
-  // Reading the branch list is a label lookup, not Branch Management: Admin and
-  // HR both need their own branch's name on their Branch Assignment screens.
-  // Creating, editing and closing branches (below) stays Super Admin exclusive.
+  // Reading the branch list is a label lookup, not Branch Management — every
+  // branch-scoped role needs at least its own branch's name somewhere in the
+  // UI. Whether a role sees OTHER branches too depends on whether it can act
+  // on transfer_requests (see canSeeAllBranches below). Creating, editing and
+  // closing branches (below) stays Super Admin exclusive regardless.
   const session = readSession(request);
   if (!session) {
     return NextResponse.json(
@@ -56,8 +58,15 @@ export async function GET(request) {
 
     const rows = (result.data || []).map(shapeBranch);
 
-    // A branch-scoped role only ever sees the one branch it belongs to.
-    const visible = isBranchExempt(session.role)
+    // Super Admin always sees every branch. A branch-scoped role sees every
+    // branch ONLY if it can act on transfer_requests (currently just Admin):
+    // that's the one legitimate reason a branch-scoped role needs to see a
+    // branch other than its own here — picking a transfer destination in the
+    // "New Transfer Request" modal. Every other branch-scoped role (HR,
+    // Accountant, Employee) stays limited to its own branch, matching this
+    // endpoint's original label-lookup purpose.
+    const canSeeAllBranches = isBranchExempt(session.role) || can(session.role, "transfer_requests", "create");
+    const visible = canSeeAllBranches
       ? rows
       : rows.filter((b) => String(b.id) === String(session.branch_id || ""));
 

@@ -88,8 +88,14 @@ export const MODULES = {
     page: { super_admin: "sa-branches" },
   },
   branch_assignment: {
-    order: 6, label: "Branch Assignment", section: "Management",
-    page: { super_admin: "sa-branch-assign", admin: "adm-branch-assign", hr: "hr-branch-assign" },
+    order: 6.5, label: "Branch Assignment", section: "Management",
+    // Admin/Super Admin's branch-roster + transfer-request flow are now one
+    // merged page — pointing this module at the same page id as
+    // transfer_requests lets buildMenu()'s dedup collapse them into a single
+    // sidebar row (transfer_requests' lower order wins the label). HR keeps
+    // its own separate, unmerged Branch Assignment page and instant-write
+    // flow.
+    page: { super_admin: "sa-transfer-requests", admin: "adm-transfer-requests", hr: "hr-branch-assign" },
   },
   roles_permissions: {
     order: 7, label: "Roles & Permissions", section: "Management",
@@ -99,7 +105,7 @@ export const MODULES = {
   // reviews and approves/rejects (public.transfer_requests + its trigger
   // moves profiles.branch_id automatically on approval).
   transfer_requests: {
-    order: 6.5, label: "Transfer Requests", section: "Management",
+    order: 6, label: "Transfer Requests", section: "Management",
     page: { admin: "adm-transfer-requests", super_admin: "sa-transfer-requests" },
   },
   leave_approval: {

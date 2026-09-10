@@ -13,7 +13,6 @@ const ADMIN_PAGES = {
   'adm-audit-logs':   'Audit Logs',
   'adm-users':        'User Management',
   'adm-transfer-requests':'Transfer Requests',
-  'adm-branch-assign':'Branch Assignment',
   'adm-maintenance':  'System Maintenance',
   'adm-branch-reports':'Branch Reports',
   'adm-profile':      'Profile',
@@ -46,7 +45,6 @@ let adminTransferHistory = [];
 let branchAllEmployees = [];
 let branchFilter = 'all';
 let branchSearch = '';
-let currentBranchEmployee = null;
 let branchPaginator = null;
 let admAssignBranches = [];
 
@@ -99,11 +97,8 @@ function adminNav(pageId, navEl) {
   }
 
   if (pageId === 'adm-transfer-requests') {
-    loadAdminTransferRequests();
-  }
-
-  if (pageId === 'adm-branch-assign') {
     loadBranchAssignment();
+    loadAdminTransferRequests();
   }
 
   if (pageId === 'adm-maintenance') {
@@ -1048,9 +1043,6 @@ window.exportAuditLogsCsv = exportAuditLogsCsv;
 window.loadBranchAssignment = loadBranchAssignment;
 window.setBranchFilter = setBranchFilter;
 window.setBranchSearch = setBranchSearch;
-window.openBranchAssignModal = openBranchAssignModal;
-window.closeBranchAssignModal = closeBranchAssignModal;
-window.submitBranchAssign = submitBranchAssign;
 window.loadAdminProfile = loadAdminProfile;
 
 /* ── CHANGE PASSWORD ── */
@@ -2114,7 +2106,7 @@ function renderBranchTable(employees) {
   if (!tbody) return;
 
   if (!employees.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="color:var(--t3);">No employees found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--t3);">No employees found.</td></tr>`;
     return;
   }
 
@@ -2129,10 +2121,6 @@ function renderBranchTable(employees) {
       : `<span class="badge br"><span class="bd"></span>Unassigned</span>`;
     const assignedAt = emp.assigned_at ? formatDateTime(emp.assigned_at) : '—';
     const typeClass = emp.employee_type === 'Non-Teaching' ? 'ba' : 'bt2';
-    const safeId = escapeJsString(emp.id);
-    const actionBtn = emp.branch
-      ? `<button class="btn btn-outline" style="font-size:11px;padding:5px 11px;" onclick="openBranchAssignModal('${safeId}')">Reassign</button>`
-      : `<button class="btn btn-primary" style="font-size:11px;padding:5px 11px;" onclick="openBranchAssignModal('${safeId}')">Assign</button>`;
 
     return `
       <tr>
@@ -2147,7 +2135,6 @@ function renderBranchTable(employees) {
         <td class="mn">${escapeHtml(emp.position || '—')}</td>
         <td>${branchCell}</td>
         <td class="mn" style="font-size:11px;">${escapeHtml(assignedAt)}</td>
-        <td>${actionBtn}</td>
       </tr>
     `;
   }).join('');
@@ -2177,7 +2164,7 @@ function setBranchSearch(value) {
 
 async function loadBranchAssignment() {
   const tbody = document.getElementById('ba-table-body');
-  if (tbody) tbody.innerHTML = skeletonRows(7);
+  if (tbody) tbody.innerHTML = skeletonRows(6);
 
   try {
     admAssignBranches = await fetchBranchesCached().catch(() => admAssignBranches);
@@ -2191,98 +2178,16 @@ async function loadBranchAssignment() {
     renderFilteredBranchEmployees();
   } catch (error) {
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="7" style="color:#E85555;">${escapeHtml(error.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="color:#E85555;">${escapeHtml(error.message)}</td></tr>`;
     }
   }
 }
 
-function openBranchAssignModal(userId) {
-  const modal = document.getElementById('branch-assign-modal');
-  const form = document.getElementById('branch-assign-form');
-  if (!modal || !form) return;
-
-  currentBranchEmployee = branchAllEmployees.find((e) => e.id === userId);
-  if (!currentBranchEmployee) {
-    window.alert('Employee not found. Please refresh.');
-    return;
-  }
-
-  const titleEl = document.getElementById('ba-modal-title');
-  if (titleEl) titleEl.textContent = currentBranchEmployee.branch ? 'Reassign Branch' : 'Assign Branch';
-
-  form.elements.user_id.value = currentBranchEmployee.id;
-  form.elements.employee_display.value = `${currentBranchEmployee.full_name} (${currentBranchEmployee.employee_id || 'N/A'})`;
-
-  const branchSelect = form.elements.branch;
-  if (branchSelect) {
-    // Always offer active branches; also include the employee's current branch even if
-    // it has since gone inactive, so reassigning away from it stays possible.
-    const options = [...admAssignBranches];
-    if (currentBranchEmployee.branch && !options.some((b) => b.id === currentBranchEmployee.branch)) {
-      options.push({ id: currentBranchEmployee.branch, name: `${currentBranchEmployee.branch_label || 'Unknown branch'} (Inactive)` });
-    }
-
-    if (options.length) {
-      branchSelect.innerHTML = options.map((b) =>
-        `<option value="${escapeHtml(b.id)}">${escapeHtml(b.name)}</option>`
-      ).join('');
-    } else {
-      branchSelect.innerHTML = '<option value="" disabled>No branches configured yet.</option>';
-    }
-    if (currentBranchEmployee.branch) branchSelect.value = currentBranchEmployee.branch;
-  }
-
-  const feedbackEl = document.getElementById('ba-modal-feedback');
-  if (feedbackEl) feedbackEl.textContent = '';
-
-  modal.style.display = 'flex';
-}
-
-function closeBranchAssignModal() {
-  const modal = document.getElementById('branch-assign-modal');
-  if (modal) modal.style.display = 'none';
-}
-
-async function submitBranchAssign(event) {
-  event.preventDefault();
-  const form = event.target;
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const feedbackEl = document.getElementById('ba-modal-feedback');
-  const formData = new FormData(form);
-
-  const userId = String(formData.get('user_id') || '').trim();
-  const branchId = String(formData.get('branch') || '').trim();
-
-  if (!userId || !branchId) {
-    if (feedbackEl) { feedbackEl.textContent = 'Missing required fields.'; feedbackEl.className = 'adm-feedback err'; }
-    return;
-  }
-
-  try {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting...';
-
-    // Branch Assignment and Transfer Requests now share one source of truth:
-    // this creates a transfer_requests row pending Super Admin approval,
-    // exactly like the dedicated Transfer Requests page does, instead of
-    // writing branch_id immediately.
-    const response = await fetch('/api/admin/transfer-requests', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: userId, to_branch_id: branchId, remarks: 'Branch assignment' }),
-    });
-
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Failed to submit transfer request');
-
-    if (feedbackEl) { feedbackEl.textContent = 'Transfer request submitted — pending Super Admin approval.'; feedbackEl.className = 'adm-feedback ok'; }
-    window.pushNotification?.('Transfer Requested', 'Waiting for Super Admin approval.', 'success');
-    await loadBranchAssignment();
-    setTimeout(() => closeBranchAssignModal(), 600);
-  } catch (error) {
-    if (feedbackEl) { feedbackEl.textContent = error.message; feedbackEl.className = 'adm-feedback err'; }
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Confirm Assignment';
-  }
-}
+// Per-row "Reassign"/"Assign" button and its dedicated modal are retired —
+// the Employee Branch List above is now purely informational (who's in
+// which branch, filterable). Moving someone is exclusively "New Transfer
+// Request" (openTransferRequestModal(), further down), which creates a
+// transfer_requests row pending Super Admin approval instead of writing
+// branch_id immediately. Both this page's sections share the same
+// admAssignBranches/allUsers state loaded by loadBranchAssignment() /
+// loadAdminTransferRequests().

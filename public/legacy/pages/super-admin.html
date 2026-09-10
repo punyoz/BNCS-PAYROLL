@@ -301,7 +301,41 @@
          PAGE: Transfer Requests
     ────────────────────────────── -->
     <div class="page" id="sa-transfer-requests">
-      <div class="ph"><h2>Transfer Requests</h2><p>Review and decide branch transfer requests raised by Admins</p></div>
+      <div class="ph"><h2>Transfer Requests</h2><p>View employees by branch, request a transfer, and decide requests raised by Admins</p></div>
+
+      <div class="sg3" style="margin-bottom:14px;">
+        <div class="card"><div class="ct">Total Employees</div><div class="cv" id="sa-ba-count-total">0</div><div class="cch">All active employees</div></div>
+        <div class="card"><div class="ct">Unassigned</div><div class="cv r" id="sa-ba-count-unassigned">0</div><div class="cch">Not yet in a branch</div></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <label style="font-size:12px;color:var(--t3);white-space:nowrap;flex-shrink:0;">Filter by Branch</label>
+        <select class="fc" id="sa-ba-branch-select" style="max-width:300px;" onchange="setSABranchFilter(this.value)">
+          <option value="all">All (0)</option>
+          <option value="unassigned">Unassigned (0)</option>
+        </select>
+      </div>
+
+      <div class="adm-employee-controls" style="margin-top:10px;">
+        <input id="sa-ba-search" class="fc" type="text" placeholder="Search by name or employee ID" oninput="setSABranchSearch(this.value)" />
+      </div>
+
+      <div class="sh">
+        <span class="stitle">Employee Branch List</span>
+        <span class="sp"></span>
+        <button class="btn btn-primary" onclick="openSATransferRequestModal()">New Transfer Request</button>
+      </div>
+
+      <div class="tw"><table>
+        <thead><tr><th>Employee</th><th>Employee ID</th><th>Type</th><th>Position</th><th>Branch</th><th>Assigned At</th></tr></thead>
+        <tbody id="sa-ba-table-body">
+          <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td></tr>
+          <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
+        </tbody>
+      </table></div>
+      <div class="pg-bar" id="sa-ba-pg"></div>
+
+      <div class="ph" style="margin-top:22px;"><h2 style="font-size:16px;">Pending &amp; History</h2></div>
       <div class="banner banner-blue">ℹ Approving a request immediately moves the employee to the destination branch. Rejected or approved requests move to History.</div>
 
       <div class="card" style="margin-bottom:16px;">
@@ -659,54 +693,6 @@
       </div>
     </div>
 
-    <!-- ──────────────────────────────
-         PAGE: Branch Assignment
-    ────────────────────────────── -->
-    <div class="page" id="sa-branch-assign">
-      <div class="ph"><h2>Branch Assignment</h2><p>Assign employees to their respective school branch campus</p></div>
-
-      <div class="sg3" style="margin-bottom:8px;">
-        <div class="card"><div class="ct">Unassigned</div><div class="cv r" id="sa-ba-count-unassigned">0</div><div class="cch">Not yet in a branch</div></div>
-        <div class="card"><div class="ct">Main Branch</div><div class="cv a" id="sa-ba-count-main">0</div><div class="cch">Main campus</div></div>
-        <div class="card"><div class="ct">2nd Branch</div><div class="cv b" id="sa-ba-count-2">0</div><div class="cch">2nd campus</div></div>
-      </div>
-      <div class="sg3" style="margin-bottom:14px;">
-        <div class="card"><div class="ct">3rd Branch</div><div class="cv t" id="sa-ba-count-3">0</div><div class="cch">3rd campus</div></div>
-        <div class="card"><div class="ct">4th Branch</div><div class="cv g" id="sa-ba-count-4">0</div><div class="cch">4th campus</div></div>
-        <div class="card"><div class="ct">Total Employees</div><div class="cv" id="sa-ba-count-total">0</div><div class="cch">All active employees</div></div>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <label style="font-size:12px;color:var(--t3);white-space:nowrap;flex-shrink:0;">Filter by Branch</label>
-        <select class="fc" id="sa-ba-branch-select" style="max-width:300px;" onchange="setSABranchFilter(this.value)">
-          <option value="all">All (0)</option>
-          <option value="unassigned">Unassigned (0)</option>
-        </select>
-      </div>
-
-      <div class="adm-employee-controls" style="margin-top:10px;">
-        <input id="sa-ba-search" class="fc" type="text" placeholder="Search by name or employee ID" oninput="setSABranchSearch(this.value)" />
-      </div>
-
-      <div class="sh">
-        <span class="stitle">Employee Branch List</span>
-        <span class="sp"></span>
-        <button class="btn btn-outline" onclick="loadSABranchAssignment()">Refresh</button>
-      </div>
-
-      <div class="tw"><table>
-        <thead><tr><th>Employee</th><th>Employee ID</th><th>Type</th><th>Position</th><th>Branch</th><th>Assigned At</th><th></th></tr></thead>
-        <tbody id="sa-ba-table-body">
-          <tr class="sk-row"><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td></tr>
-          <tr class="sk-row"><td><div class="sk-bar" style="width:65%"></div></td><td><div class="sk-bar" style="width:75%"></div></td><td><div class="sk-bar" style="width:55%"></div></td><td><div class="sk-bar" style="width:80%"></div></td><td><div class="sk-bar" style="width:70%"></div></td><td><div class="sk-bar" style="width:90%"></div></td><td><div class="sk-bar" style="width:65%"></div></td></tr>
-        </tbody>
-      </table></div>
-      <div class="pg-bar" id="sa-ba-pg"></div>
-    </div>
-
   </div><!-- end .main -->
 
   <!-- ── SA RFID EDIT MODAL ── -->
@@ -739,18 +725,21 @@
   <div id="sa-branch-assign-modal" class="adm-modal-backdrop" style="display:none;">
     <div class="adm-modal-card" style="width:min(480px,100%);">
       <div class="adm-modal-head">
-        <h3 id="sa-ba-modal-title">Assign Branch</h3>
-        <button class="btn btn-close-x" type="button" onclick="closeSABranchAssignModal()" title="Close">&#x2715;</button>
+        <h3>New Transfer Request</h3>
+        <button class="btn btn-close-x" type="button" onclick="closeSATransferRequestModal()" title="Close">&#x2715;</button>
       </div>
-      <form id="sa-branch-assign-form" class="adm-modal-form" style="grid-template-columns:1fr;" onsubmit="submitSABranchAssign(event)">
-        <input type="hidden" name="user_id" />
+      <form id="sa-branch-assign-form" class="adm-modal-form" style="grid-template-columns:1fr;" onsubmit="submitSATransferRequest(event)">
         <div class="fg" style="margin:0;">
           <label>Employee</label>
-          <input class="fc" name="employee_display" readonly style="background:var(--bg3);cursor:default;" />
+          <select class="fc" name="employee_id" id="sa-transfer-request-employee"></select>
         </div>
         <div class="fg" style="margin:0;">
-          <label>Assign to Branch</label>
-          <select class="fc" name="branch"></select>
+          <label>Transfer To Branch</label>
+          <select class="fc" name="to_branch_id" id="sa-transfer-request-branch"></select>
+        </div>
+        <div class="fg" style="margin:0;">
+          <label>Remarks (Optional)</label>
+          <textarea class="fc" name="remarks" rows="3" maxlength="300" placeholder="Reason for the transfer"></textarea>
         </div>
         <p id="sa-ba-modal-feedback" class="adm-feedback"></p>
         <div class="adm-modal-actions">
