@@ -156,7 +156,7 @@ export async function POST(request) {
 
     const profileResult = await adminClient
       .from("profiles")
-      .select("id,email,full_name,role,employee_id,employee_type,position,branch_id")
+      .select("id,email,full_name,role,employee_id,employee_type,position,branch_id,cp_number,date_hired,address,sss_number,pagibig_number,philhealth_number,bank_name,bank_account_number")
       .eq("id", data.user.id)
       .maybeSingle();
 
@@ -197,12 +197,19 @@ export async function POST(request) {
       employee_type: resolvedEmployeeType,
       position: resolvedPosition,
       branch_id: resolvedBranchId,
-      address: normalizeText(metadata.address, ""),
-      sss_number: normalizeText(metadata.sss_number, ""),
-      pagibig_number: normalizeText(metadata.pagibig_number, ""),
-      philhealth_number: normalizeText(metadata.philhealth_number, ""),
-      bank_name: normalizeText(metadata.bank_name, ""),
-      bank_account_number: normalizeText(metadata.bank_account_number, ""),
+      // profiles is authoritative for these (real, constrained columns —
+      // see supabase/migrations/20260914_profile_id_fields_and_perf.sql);
+      // metadata is only a fallback for a profile row not yet backfilled.
+      // This context feeds every role's own "Profile" self-view, so this is
+      // the one place all of them read from.
+      cp_number: normalizeText(profileRow?.cp_number, normalizeText(metadata.cp_number, "")),
+      date_hired: normalizeText(profileRow?.date_hired, normalizeText(metadata.date_hired, "")),
+      address: normalizeText(profileRow?.address, normalizeText(metadata.address, "")),
+      sss_number: normalizeText(profileRow?.sss_number, normalizeText(metadata.sss_number, "")),
+      pagibig_number: normalizeText(profileRow?.pagibig_number, normalizeText(metadata.pagibig_number, "")),
+      philhealth_number: normalizeText(profileRow?.philhealth_number, normalizeText(metadata.philhealth_number, "")),
+      bank_name: normalizeText(profileRow?.bank_name, normalizeText(metadata.bank_name, "")),
+      bank_account_number: normalizeText(profileRow?.bank_account_number, normalizeText(metadata.bank_account_number, "")),
     },
   });
 

@@ -349,7 +349,7 @@ export async function POST(request) {
         role,
         full_name: fullName,
         branch_id: branchId,
-        cp_number: normalizeText(body.cp_number, "") || null,
+        cp_number: normalizeDigits(body.cp_number, 11) || null,
         date_hired: normalizeText(body.date_hired, "") || null,
         address: normalizeText(body.address, "") || null,
         sss_number: normalizeDigits(body.sss_number, 10) || null,
@@ -372,7 +372,7 @@ export async function POST(request) {
       email,
       full_name: fullName,
       role,
-      cp_number: normalizeText(body.cp_number, ""),
+      cp_number: normalizeDigits(body.cp_number, 11),
       date_hired: normalizeText(body.date_hired, ""),
       address: normalizeText(body.address, ""),
       sss_number: normalizeDigits(body.sss_number, 10),
@@ -504,7 +504,7 @@ export async function PATCH(request) {
       if (body.philhealth_number !== undefined) nextMetadata.philhealth_number = normalizeText(body.philhealth_number, normalizeText(currentMetadata.philhealth_number, ""));
       if (body.bank_name !== undefined) nextMetadata.bank_name = normalizeText(body.bank_name, normalizeText(currentMetadata.bank_name, ""));
       if (body.bank_account_number !== undefined) nextMetadata.bank_account_number = normalizeText(body.bank_account_number, normalizeText(currentMetadata.bank_account_number, ""));
-      if (body.cp_number !== undefined) nextMetadata.cp_number = normalizeText(body.cp_number, "");
+      if (body.cp_number !== undefined) nextMetadata.cp_number = normalizeDigits(body.cp_number, 11);
       if (body.date_hired !== undefined) nextMetadata.date_hired = normalizeText(body.date_hired, "");
     }
 
@@ -541,7 +541,7 @@ export async function PATCH(request) {
       // profiles is authoritative for these (employee_info_view and every
       // other employee-listing route read from profiles, not user_metadata)
       // — only touch a field when the caller actually supplied it.
-      if (body.cp_number !== undefined) profilePatch.cp_number = normalizeText(body.cp_number, "") || null;
+      if (body.cp_number !== undefined) profilePatch.cp_number = normalizeDigits(body.cp_number, 11) || null;
       if (body.date_hired !== undefined) profilePatch.date_hired = normalizeText(body.date_hired, "") || null;
       if (body.address !== undefined) profilePatch.address = normalizeText(body.address, "") || null;
       if (body.sss_number !== undefined) profilePatch.sss_number = normalizeDigits(body.sss_number, 10) || null;

@@ -17,6 +17,7 @@ const SA_PAGES = {
   'sa-config':       'System Configuration',
   'sa-audit':        'Audit & Monitoring',
   'sa-backup':       'Backup & Recovery',
+  'sa-profile':      'Profile',
 };
 
 let saAllUsers = [];
@@ -77,6 +78,7 @@ function saNav(pageId, navEl) {
   else if (pageId === 'sa-config')     loadSAConfig();
   else if (pageId === 'sa-audit')      loadSAAuditLogs();
   else if (pageId === 'sa-backup')     loadSABackupStatus();
+  else if (pageId === 'sa-profile')    loadSAProfile();
 }
 
 /* ── IDENTITY ── */
@@ -95,6 +97,29 @@ function applySAIdentity() {
       ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
       : ctx.full_name.slice(0, 2).toUpperCase();
   }
+}
+
+/* ── PROFILE ── */
+// Super Admin's own account has no employee record (no position, bank info,
+// etc.) — this shows what actually exists (name/email/role) instead of the
+// full employee-profile layout Admin/HR/Accountant use, which would just be
+// a page full of "—" placeholders for fields a Super Admin account never has.
+function loadSAProfile() {
+  const ctx = window.getLegacyAuthContext ? window.getLegacyAuthContext() : null;
+  if (!ctx) return;
+
+  const initials = (String(ctx.full_name || '').trim()
+    .split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('') || 'SA').toUpperCase();
+
+  const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
+
+  setTxt('sa-ep-avatar',    initials);
+  setTxt('sa-ep-name',      ctx.full_name || 'Super Administrator');
+  setTxt('sa-ep-pos',       'Super Administrator');
+  setTxt('sa-ep-role-tag',  'Super Admin');
+  setTxt('sa-ep-info-name', ctx.full_name);
+  setTxt('sa-ep-info-role', ctx.role);
+  setTxt('sa-ep-info-email', ctx.email);
 }
 
 /* ── DASHBOARD ── */

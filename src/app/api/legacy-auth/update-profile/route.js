@@ -1,7 +1,7 @@
 import { listUsersCached, invalidateUsersCache } from "@/lib/auth/users-cache";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { normalizeText } from "@/lib/auth/normalize";
+import { normalizeText, normalizeDigits } from "@/lib/auth/normalize";
 import { requirePermission, resolveTargetEmail } from "@/lib/rbac/guard";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -20,8 +20,6 @@ export async function POST(request) {
 
   const email = resolveTargetEmail(guard, body.email);
   const full_name = normalizeText(body.full_name, "");
-  const bank_name = normalizeText(body.bank_name, "");
-  const bank_account_number = normalizeText(body.bank_account_number, "");
 
   if (!email) {
     return NextResponse.json({ error: "Email is required." }, { status: 400 });
@@ -53,18 +51,32 @@ export async function POST(request) {
   }
 
   const currentMeta = user.user_metadata || {};
+  const isEmployee = guard.role === "employee";
+
   const updatedMeta = {
     ...currentMeta,
     full_name,
-    bank_name,
-    bank_account_number,
+    // An employee can see their bank details on this same screen but never
+    // change them here — that stays HR/Admin's call, through the employee-
+    // management routes. Hiding the fields client-side (readonly inputs) is
+    // trivially bypassed by a direct API call, so it's enforced here too:
+    // whatever the body sends for these two is ignored for that role.
+    bank_name: isEmployee
+      ? normalizeText(currentMeta.bank_name, "")
+      : normalizeText(body.bank_name, ""),
+    bank_account_number: isEmployee
+      ? normalizeText(currentMeta.bank_account_number, "")
+      : normalizeText(body.bank_account_number, ""),
   };
 
-  // Only the employee portal sends address — other roles' settings modals
-  // have no such field, so an absent value must leave whatever's on file
-  // untouched rather than getting wiped by an implicit empty string.
+  // Only the employee portal sends address/cp_number — other roles' settings
+  // modals have no such fields, so an absent value must leave whatever's on
+  // file untouched rather than getting wiped by an implicit empty string.
   if (body.address !== undefined) {
     updatedMeta.address = normalizeText(body.address, "");
+  }
+  if (body.cp_number !== undefined) {
+    updatedMeta.cp_number = normalizeDigits(body.cp_number, 11);
   }
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
@@ -77,13 +89,21 @@ export async function POST(request) {
 
   invalidateUsersCache();
 
-  await supabase.from("profiles").update({ full_name }).eq("id", user.id);
+  // profiles is authoritative for cp_number (see
+  // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql)
+  // — every employee-listing route reads it from there, not user_metadata.
+  const profilePatch = { full_name };
+  if (body.cp_number !== undefined) {
+    profilePatch.cp_number = updatedMeta.cp_number || null;
+  }
+  await supabase.from("profiles").update(profilePatch).eq("id", user.id);
 
   return NextResponse.json({
     success: true,
     profile: {
       full_name: updatedMeta.full_name,
       address: updatedMeta.address,
+      cp_number: updatedMeta.cp_number,
       bank_name: updatedMeta.bank_name,
       bank_account_number: updatedMeta.bank_account_number,
     },

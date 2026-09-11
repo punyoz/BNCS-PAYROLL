@@ -956,6 +956,7 @@ function loadProfilePage() {
   setTxt('ep-role-tag',      ctx.role        || 'Employee');
   setTxt('ep-info-name',     ctx.full_name);
   setTxt('ep-info-id',       ctx.employee_id);
+  setTxt('ep-info-cpnumber', ctx.cp_number ? formatDigitGroups(digitsOnly(ctx.cp_number), DIGIT_FIELD_SPECS.cp_number.groups, DIGIT_FIELD_SPECS.cp_number.separator) : '');
   setTxt('ep-info-pos',      ctx.position);
   setTxt('ep-info-type',     ctx.employee_type);
   setTxt('ep-info-email',    ctx.email);

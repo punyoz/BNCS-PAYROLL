@@ -227,11 +227,17 @@ function populateSettingsModalProfile(prefix) {
   setVal(`${prefix}-edit-lastname`,   nameParts.last_name);
   setVal(`${prefix}-edit-suffix`,     nameParts.suffix);
 
-  // Only the employee portal's settings modal has an address field — other
-  // roles' own profiles don't display or edit Home Address.
+  // Only the employee portal's settings modal has an address/contact-number
+  // field — other roles' own profiles don't display or edit these.
   setVal(`${prefix}-edit-address`,     ctx.address);
   setVal(`${prefix}-edit-bankname`,    ctx.bank_name);
   setVal(`${prefix}-edit-bankaccount`, ctx.bank_account_number);
+
+  const cpInput = document.getElementById(`${prefix}-edit-cpnumber`);
+  if (cpInput) {
+    setFormattedDigitValue(cpInput, ctx.cp_number, DIGIT_FIELD_SPECS.cp_number.groups, DIGIT_FIELD_SPECS.cp_number.separator);
+    bindDigitInput(cpInput, DIGIT_FIELD_SPECS.cp_number);
+  }
 }
 
 async function saveProfileInfo(prefix) {
@@ -256,6 +262,10 @@ async function saveProfileInfo(prefix) {
   // on file for that account.
   const addressEl = document.getElementById(`${prefix}-edit-address`);
   const address = addressEl ? String(addressEl.value || '').trim() : undefined;
+
+  // Same story as address: only the employee portal's modal has this field.
+  const cpNumberEl = document.getElementById(`${prefix}-edit-cpnumber`);
+  const cp_number = cpNumberEl ? digitsOnly(cpNumberEl.value) : undefined;
 
   if (!first_name || !last_name) {
     if (feedbackEl) { feedbackEl.textContent = 'First and last name are required.'; feedbackEl.className = 'adm-feedback err'; }
@@ -283,6 +293,7 @@ async function saveProfileInfo(prefix) {
   try {
     const payload = { email, full_name, bank_name, bank_account_number };
     if (address !== undefined) payload.address = address;
+    if (cp_number !== undefined) payload.cp_number = cp_number;
 
     const response = await fetch('/api/legacy-auth/update-profile', {
       method: 'POST',
@@ -292,8 +303,18 @@ async function saveProfileInfo(prefix) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || 'Failed to update profile.');
 
-    const updatedCtx = { ...ctx, full_name, bank_name, bank_account_number };
-    if (address !== undefined) updatedCtx.address = address;
+    // Reflect what the server actually stored, not just what was submitted —
+    // e.g. an employee's bank fields are ignored server-side, so trusting
+    // the submitted values here would show a change that didn't happen.
+    const savedProfile = result.profile || {};
+    const updatedCtx = {
+      ...ctx,
+      full_name,
+      bank_name: savedProfile.bank_name ?? bank_name,
+      bank_account_number: savedProfile.bank_account_number ?? bank_account_number,
+    };
+    if (address !== undefined) updatedCtx.address = savedProfile.address ?? address;
+    if (cp_number !== undefined) updatedCtx.cp_number = savedProfile.cp_number ?? cp_number;
     localStorage.setItem(AUTH_CONTEXT_KEY, JSON.stringify(updatedCtx));
     dispatchAuthContextChanged(updatedCtx);
 
@@ -1359,14 +1380,14 @@ function digitsOnly(value) {
   return String(value || '').replace(/\D+/g, '');
 }
 
-function formatDigitGroups(digits, groups) {
+function formatDigitGroups(digits, groups, separator = '-') {
   if (!groups || !groups.length) return digits;
   let result = '';
   let pos = 0;
   for (let i = 0; i < groups.length && pos < digits.length; i++) {
     const chunk = digits.slice(pos, pos + groups[i]);
     if (!chunk) break;
-    result += (i > 0 ? '-' : '') + chunk;
+    result += (i > 0 ? separator : '') + chunk;
     pos += groups[i];
   }
   return result;
@@ -1377,21 +1398,25 @@ const DIGIT_FIELD_SPECS = {
   pagibig_number: { maxLength: 12, groups: [4, 4, 4] },
   philhealth_number: { maxLength: 12, groups: [2, 9, 1] },
   bank_account_number: { maxLength: 20, groups: null },
+  // PH mobile numbers are 11 digits (e.g. 0917 123 4567) — space-separated
+  // to match this field's placeholder everywhere it appears, not the dash
+  // style used by the government ID fields above.
+  cp_number: { maxLength: 11, groups: [4, 3, 4], separator: ' ' },
 };
 
-function setFormattedDigitValue(input, rawValue, groups) {
+function setFormattedDigitValue(input, rawValue, groups, separator) {
   if (!input) return;
-  input.value = formatDigitGroups(digitsOnly(rawValue), groups);
+  input.value = formatDigitGroups(digitsOnly(rawValue), groups, separator);
 }
 
-function bindDigitInput(input, { maxLength, groups } = {}) {
+function bindDigitInput(input, { maxLength, groups, separator = '-' } = {}) {
   if (!input || input.dataset.digitBound === '1') return;
   input.dataset.digitBound = '1';
   input.setAttribute('inputmode', 'numeric');
 
   input.addEventListener('input', () => {
     const atEnd = input.selectionStart === input.value.length;
-    input.value = formatDigitGroups(digitsOnly(input.value).slice(0, maxLength), groups);
+    input.value = formatDigitGroups(digitsOnly(input.value).slice(0, maxLength), groups, separator);
     if (atEnd) input.setSelectionRange(input.value.length, input.value.length);
   });
 
@@ -1405,7 +1430,7 @@ function bindDigitInput(input, { maxLength, groups } = {}) {
   input.addEventListener('paste', (e) => {
     e.preventDefault();
     const text = (e.clipboardData || window.clipboardData).getData('text');
-    input.value = formatDigitGroups(digitsOnly(text).slice(0, maxLength), groups);
+    input.value = formatDigitGroups(digitsOnly(text).slice(0, maxLength), groups, separator);
   });
 }
 
@@ -1418,12 +1443,13 @@ function bindDigitFieldsIn(form) {
   });
 }
 
-/** Populates every known numeric ID field from `source`, dash-formatted. */
+/** Populates every known numeric ID field from `source`, formatted per spec. */
 function populateDigitFieldsIn(form, source) {
   if (!form || !source) return;
   Object.keys(DIGIT_FIELD_SPECS).forEach((name) => {
     const input = form.elements[name];
-    if (input) setFormattedDigitValue(input, source[name], DIGIT_FIELD_SPECS[name].groups);
+    const spec = DIGIT_FIELD_SPECS[name];
+    if (input) setFormattedDigitValue(input, source[name], spec.groups, spec.separator);
   });
 }
 

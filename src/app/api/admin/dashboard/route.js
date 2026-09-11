@@ -214,7 +214,7 @@ async function buildRecentActivity(supabase, activeEmployees) {
   }));
 }
 
-async function buildDashboardPayload(supabase, activeEmployees, approvalData, attendancePanels) {
+function buildDashboardPayload(activeEmployees, approvalData, attendancePanels, recentActivity) {
   const totalEmployees = activeEmployees.length;
   const totalPayrollMonth = activeEmployees.reduce(
     (sum, employee) => sum + Number(employee.basic_salary || 0),
@@ -223,8 +223,6 @@ async function buildDashboardPayload(supabase, activeEmployees, approvalData, at
 
   const teachingCount = activeEmployees.filter((e) => e.employee_type === "Teaching").length;
   const nonTeachingCount = activeEmployees.filter((e) => e.employee_type === "Non-Teaching").length;
-
-  const recentActivity = await buildRecentActivity(supabase, activeEmployees);
 
   return {
     generated_at: new Date().toISOString(),
@@ -252,13 +250,17 @@ export async function GET() {
     const employees = await fetchEmployees(supabase);
     const activeEmployees = employees.filter((employee) => !employee.archived);
 
-    // These two don't depend on each other's result — running them
-    // sequentially was pure added latency on every dashboard load.
-    const [approvalData, attendancePanels] = await Promise.all([
+    // None of these three depend on each other's result — running them
+    // sequentially was pure added latency on every dashboard load. Recent
+    // activity's own query used to be the slowest part once payroll_records
+    // grew (see 20260915_payroll_records_processed_at_idx.sql), so it's
+    // worth overlapping with the rest rather than tacking it on after.
+    const [approvalData, attendancePanels, recentActivity] = await Promise.all([
       fetchApprovalData(),
       getAttendancePanels(supabase, activeEmployees),
+      buildRecentActivity(supabase, activeEmployees),
     ]);
-    const payload = await buildDashboardPayload(supabase, activeEmployees, approvalData, attendancePanels);
+    const payload = buildDashboardPayload(activeEmployees, approvalData, attendancePanels, recentActivity);
 
     return NextResponse.json(payload);
   } catch (error) {

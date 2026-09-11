@@ -426,6 +426,10 @@
             <div class="ep-info-value" id="ep-info-id">—</div>
           </div>
           <div class="ep-info-item">
+            <div class="ep-info-label">Contact Number</div>
+            <div class="ep-info-value" id="ep-info-cpnumber">—</div>
+          </div>
+          <div class="ep-info-item">
             <div class="ep-info-label">Position</div>
             <div class="ep-info-value" id="ep-info-pos">—</div>
           </div>
@@ -532,17 +536,22 @@
             </div>
           </div>
           <div class="fg" style="margin:0;">
+            <label>Contact Number</label>
+            <input id="emp-edit-cpnumber" class="fc" type="tel" placeholder="e.g. 0917 123 4567" />
+          </div>
+          <div class="fg" style="margin:0;">
             <label>Home Address</label>
             <textarea id="emp-edit-address" class="fc" rows="2" maxlength="200" placeholder="e.g. 123 Rizal St., Barangay San Isidro, Antipolo City, Rizal"></textarea>
           </div>
           <div class="fg" style="margin:0;">
             <label>Bank Name</label>
-            <input id="emp-edit-bankname" class="fc" type="text" placeholder="e.g. BPI, BDO, Landbank" />
+            <input id="emp-edit-bankname" class="fc" type="text" placeholder="e.g. BPI, BDO, Landbank" readonly style="background:var(--bg3);cursor:not-allowed;" />
           </div>
           <div class="fg" style="margin:0;">
             <label>Bank Account Number</label>
-            <input id="emp-edit-bankaccount" class="fc" type="text" placeholder="Bank account number" />
+            <input id="emp-edit-bankaccount" class="fc" type="text" placeholder="Bank account number" readonly style="background:var(--bg3);cursor:not-allowed;" />
           </div>
+          <p style="font-size:11px;color:var(--t3);margin:-6px 0 0;">Bank details are set by HR or Admin and can't be changed here.</p>
         </div>
         <button class="btn btn-primary" style="width:100%;padding:11px;margin-bottom:6px;" onclick="saveProfileInfo('emp')">Save Information</button>
         <p id="emp-profile-feedback" class="adm-feedback" style="margin-bottom:14px;"></p>

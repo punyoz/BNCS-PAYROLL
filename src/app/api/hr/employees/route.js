@@ -179,7 +179,7 @@ export async function PATCH(request) {
     if (body.philhealth_number !== undefined) updatedMeta.philhealth_number = normalizeDigits(body.philhealth_number, 12);
     if (body.bank_name !== undefined) updatedMeta.bank_name = normalizeText(body.bank_name, normalizeText(currentMeta.bank_name, ""));
     if (body.bank_account_number !== undefined) updatedMeta.bank_account_number = normalizeDigits(body.bank_account_number, 20);
-    if (body.cp_number !== undefined) updatedMeta.cp_number = normalizeText(body.cp_number, "");
+    if (body.cp_number !== undefined) updatedMeta.cp_number = normalizeDigits(body.cp_number, 11);
     if (body.date_hired !== undefined) updatedMeta.date_hired = normalizeText(body.date_hired, "");
 
     const nextEmail = body.email !== undefined
@@ -203,7 +203,7 @@ export async function PATCH(request) {
     // profiles is authoritative for these (every employee-listing route
     // reads from profiles, not user_metadata) — only touch a field when the
     // caller actually supplied it.
-    if (body.cp_number !== undefined) profilePatch.cp_number = normalizeText(body.cp_number, "") || null;
+    if (body.cp_number !== undefined) profilePatch.cp_number = normalizeDigits(body.cp_number, 11) || null;
     if (body.date_hired !== undefined) profilePatch.date_hired = normalizeText(body.date_hired, "") || null;
     if (body.address !== undefined) profilePatch.address = normalizeText(body.address, "") || null;
     if (body.sss_number !== undefined) profilePatch.sss_number = normalizeDigits(body.sss_number, 10) || null;
