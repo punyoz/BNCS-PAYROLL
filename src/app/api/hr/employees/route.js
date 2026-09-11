@@ -2,7 +2,7 @@ import { listUsersCached, invalidateUsersCache } from "@/lib/auth/users-cache";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sanitizeError } from "@/lib/api-error";
-import { normalizeRoleEmail, normalizeText } from "@/lib/auth/normalize";
+import { normalizeRoleEmail, normalizeText, normalizeDigits } from "@/lib/auth/normalize";
 
 const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -78,14 +78,15 @@ function shapeEmployee(user, profile) {
     date_of_birth: normalizeText(meta.date_of_birth),
     archived: Boolean(meta.archived),
     created_at: user.created_at,
-    address: normalizeText(meta.address, ""),
-    sss_number: normalizeText(meta.sss_number, ""),
-    pagibig_number: normalizeText(meta.pagibig_number, ""),
-    philhealth_number: normalizeText(meta.philhealth_number, ""),
-    bank_name: normalizeText(meta.bank_name, ""),
-    bank_account_number: normalizeText(meta.bank_account_number, ""),
-    // Live on profiles, not user_metadata (see
-    // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql).
+    // profiles is now authoritative for these (real, constrained columns —
+    // see supabase/migrations/20260914_profile_id_fields_and_perf.sql);
+    // metadata is only a fallback for a profile row not yet backfilled.
+    address: normalizeText(profile?.address, normalizeText(meta.address, "")),
+    sss_number: normalizeText(profile?.sss_number, normalizeText(meta.sss_number, "")),
+    pagibig_number: normalizeText(profile?.pagibig_number, normalizeText(meta.pagibig_number, "")),
+    philhealth_number: normalizeText(profile?.philhealth_number, normalizeText(meta.philhealth_number, "")),
+    bank_name: normalizeText(profile?.bank_name, normalizeText(meta.bank_name, "")),
+    bank_account_number: normalizeText(profile?.bank_account_number, normalizeText(meta.bank_account_number, "")),
     cp_number: normalizeText(profile?.cp_number, ""),
     date_hired: normalizeText(profile?.date_hired, ""),
     branch_id: profile?.branch_id || meta.branch_id || null,
@@ -113,7 +114,7 @@ export async function GET(request) {
     if (userIds.length) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id,email,full_name,employee_id,employee_type,position,employee_status,cp_number,date_hired,branch_id")
+        .select("id,email,full_name,employee_id,employee_type,position,employee_status,cp_number,date_hired,branch_id,address,sss_number,pagibig_number,philhealth_number,bank_name,bank_account_number")
         .in("id", userIds);
       (profiles || []).forEach((p) => profileMap.set(p.id, p));
     }
@@ -173,11 +174,11 @@ export async function PATCH(request) {
     if (position !== undefined) updatedMeta.position = normalizeText(position, currentMeta.position);
     if (employee_type !== undefined) updatedMeta.employee_type = normalizeText(employee_type, currentMeta.employee_type);
     if (body.address !== undefined) updatedMeta.address = normalizeText(body.address, normalizeText(currentMeta.address, ""));
-    if (body.sss_number !== undefined) updatedMeta.sss_number = normalizeText(body.sss_number, normalizeText(currentMeta.sss_number, ""));
-    if (body.pagibig_number !== undefined) updatedMeta.pagibig_number = normalizeText(body.pagibig_number, normalizeText(currentMeta.pagibig_number, ""));
-    if (body.philhealth_number !== undefined) updatedMeta.philhealth_number = normalizeText(body.philhealth_number, normalizeText(currentMeta.philhealth_number, ""));
+    if (body.sss_number !== undefined) updatedMeta.sss_number = normalizeDigits(body.sss_number, 10);
+    if (body.pagibig_number !== undefined) updatedMeta.pagibig_number = normalizeDigits(body.pagibig_number, 12);
+    if (body.philhealth_number !== undefined) updatedMeta.philhealth_number = normalizeDigits(body.philhealth_number, 12);
     if (body.bank_name !== undefined) updatedMeta.bank_name = normalizeText(body.bank_name, normalizeText(currentMeta.bank_name, ""));
-    if (body.bank_account_number !== undefined) updatedMeta.bank_account_number = normalizeText(body.bank_account_number, normalizeText(currentMeta.bank_account_number, ""));
+    if (body.bank_account_number !== undefined) updatedMeta.bank_account_number = normalizeDigits(body.bank_account_number, 20);
     if (body.cp_number !== undefined) updatedMeta.cp_number = normalizeText(body.cp_number, "");
     if (body.date_hired !== undefined) updatedMeta.date_hired = normalizeText(body.date_hired, "");
 
@@ -199,10 +200,17 @@ export async function PATCH(request) {
     if (nextEmail) profilePatch.email = nextEmail;
     if (employee_type !== undefined) profilePatch.employee_type = normalizeText(employee_type);
     if (position !== undefined) profilePatch.position = normalizeText(position);
-    // profiles is authoritative for these two (employee_info_view reads from
-    // profiles, not user_metadata) — only touch them when supplied.
+    // profiles is authoritative for these (every employee-listing route
+    // reads from profiles, not user_metadata) — only touch a field when the
+    // caller actually supplied it.
     if (body.cp_number !== undefined) profilePatch.cp_number = normalizeText(body.cp_number, "") || null;
     if (body.date_hired !== undefined) profilePatch.date_hired = normalizeText(body.date_hired, "") || null;
+    if (body.address !== undefined) profilePatch.address = normalizeText(body.address, "") || null;
+    if (body.sss_number !== undefined) profilePatch.sss_number = normalizeDigits(body.sss_number, 10) || null;
+    if (body.pagibig_number !== undefined) profilePatch.pagibig_number = normalizeDigits(body.pagibig_number, 12) || null;
+    if (body.philhealth_number !== undefined) profilePatch.philhealth_number = normalizeDigits(body.philhealth_number, 12) || null;
+    if (body.bank_name !== undefined) profilePatch.bank_name = normalizeText(body.bank_name, "") || null;
+    if (body.bank_account_number !== undefined) profilePatch.bank_account_number = normalizeDigits(body.bank_account_number, 20) || null;
     if (Object.keys(profilePatch).length) {
       await supabase.from("profiles").update(profilePatch).eq("id", id);
     }

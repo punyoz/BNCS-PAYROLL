@@ -349,34 +349,10 @@ function setupSalaryFieldValidation(scope = document) {
   });
 }
 
-function setupGovIdBankFieldValidation(scope = document) {
-  const INVALID_CHARS = /[A-Za-z]/g;
-  const fields = ['sss_number', 'pagibig_number', 'philhealth_number', 'bank_account_number'];
-
-  fields.forEach((fieldName) => {
-    scope.querySelectorAll(`[name="${fieldName}"]`).forEach((input) => {
-      if (input.dataset.govIdBound === '1') return;
-      input.dataset.govIdBound = '1';
-      const errorSpan = input.nextElementSibling;
-      input.addEventListener('input', () => {
-        const original = input.value;
-        const cleaned = original.replace(INVALID_CHARS, '');
-        if (cleaned !== original) {
-          const pos = input.selectionStart - (original.length - cleaned.length);
-          input.value = cleaned;
-          input.setSelectionRange(Math.max(0, pos), Math.max(0, pos));
-          if (errorSpan && errorSpan.classList.contains('field-error')) {
-            errorSpan.textContent = 'Letters are not allowed in this field.';
-          }
-        } else {
-          if (errorSpan && errorSpan.classList.contains('field-error')) {
-            errorSpan.textContent = '';
-          }
-        }
-      });
-    });
-  });
-}
+// Superseded by bindDigitFieldsIn() (app.js) — full digit-only filtering,
+// maxLength enforcement, and dash auto-formatting, bound per-modal-open
+// instead of once at bootstrap. Kept out of the boot sequence so it can't
+// fight the new handler over the input's caret position.
 
 function normalizeSuffix(value) {
   return String(value || '').trim().slice(0, 16);
@@ -1005,13 +981,7 @@ function renderDashboard(data) {
 
 async function loadDashboard() {
   try {
-    const response = await fetch('/api/admin/dashboard', { method: 'GET' });
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error || 'Failed to load dashboard data');
-    }
-
+    const payload = await fetchDashboardCached();
     renderDashboard(payload);
   } catch (error) {
     console.error('Dashboard load error:', error.message);
@@ -1286,6 +1256,7 @@ function openAddUserModal() {
   showAddUserFeedback('');
   form.querySelectorAll('.field-error').forEach((el) => { el.textContent = ''; });
   onAddUserRoleChange('employee');
+  bindDigitFieldsIn(form);
   modal.style.display = 'flex';
 }
 
@@ -1350,11 +1321,11 @@ async function submitAddUser(event) {
           address: String(formData.get('address') || '').trim(),
           cp_number: String(formData.get('cp_number') || '').trim(),
           date_hired: String(formData.get('date_hired') || '').trim(),
-          sss_number: String(formData.get('sss_number') || '').trim(),
-          pagibig_number: String(formData.get('pagibig_number') || '').trim(),
-          philhealth_number: String(formData.get('philhealth_number') || '').trim(),
+          sss_number: digitsOnly(formData.get('sss_number')),
+          pagibig_number: digitsOnly(formData.get('pagibig_number')),
+          philhealth_number: digitsOnly(formData.get('philhealth_number')),
           bank_name: String(formData.get('bank_name') || '').trim(),
-          bank_account_number: String(formData.get('bank_account_number') || '').trim(),
+          bank_account_number: digitsOnly(formData.get('bank_account_number')),
         }),
       });
     } else {
@@ -1436,12 +1407,11 @@ function openEditUserModal(userId) {
     if (form.elements.address) form.elements.address.value = currentEditingUser.address || '';
     if (form.elements.cp_number) form.elements.cp_number.value = currentEditingUser.cp_number || '';
     if (form.elements.date_hired) form.elements.date_hired.value = currentEditingUser.date_hired || '';
-    if (form.elements.sss_number) form.elements.sss_number.value = currentEditingUser.sss_number || '';
-    if (form.elements.pagibig_number) form.elements.pagibig_number.value = currentEditingUser.pagibig_number || '';
-    if (form.elements.philhealth_number) form.elements.philhealth_number.value = currentEditingUser.philhealth_number || '';
     if (form.elements.bank_name) form.elements.bank_name.value = currentEditingUser.bank_name || '';
-    if (form.elements.bank_account_number) form.elements.bank_account_number.value = currentEditingUser.bank_account_number || '';
+    populateDigitFieldsIn(form, currentEditingUser);
   }
+
+  bindDigitFieldsIn(form);
 
   archiveBtn.className = currentEditingUser.archived ? 'btn btn-green' : 'btn btn-red';
   archiveBtn.textContent = currentEditingUser.archived ? 'Restore User' : 'Archive User';
@@ -1557,11 +1527,11 @@ async function submitEditUser(event) {
         address: String(formData.get('address') || '').trim(),
         cp_number: String(formData.get('cp_number') || '').trim(),
         date_hired: String(formData.get('date_hired') || '').trim(),
-        sss_number: String(formData.get('sss_number') || '').trim(),
-        pagibig_number: String(formData.get('pagibig_number') || '').trim(),
-        philhealth_number: String(formData.get('philhealth_number') || '').trim(),
+        sss_number: digitsOnly(formData.get('sss_number')),
+        pagibig_number: digitsOnly(formData.get('pagibig_number')),
+        philhealth_number: digitsOnly(formData.get('philhealth_number')),
         bank_name: String(formData.get('bank_name') || '').trim(),
-        bank_account_number: String(formData.get('bank_account_number') || '').trim(),
+        bank_account_number: digitsOnly(formData.get('bank_account_number')),
       };
       if (password) payload.password = password;
 
@@ -2001,7 +1971,6 @@ function initAdminPortal() {
 
   setupNameFieldValidation();
   setupSalaryFieldValidation();
-  setupGovIdBankFieldValidation();
 
   const savedPage = window.getPersistedRolePageState
     ? window.getPersistedRolePageState('admin')

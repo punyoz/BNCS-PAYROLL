@@ -792,6 +792,27 @@
     </div>
   </div>
 
+  <!-- ── VIEW EMPLOYEE DETAILS MODAL (read-only) ── -->
+  <div id="sa-view-employee-modal" class="adm-modal-backdrop" style="display:none;">
+    <div class="adm-modal-card" style="max-width:520px;">
+      <div class="adm-modal-head">
+        <h3 id="sa-view-employee-title">Employee Details</h3>
+        <button class="btn btn-close-x" type="button" onclick="closeSAViewEmployeeModal()" title="Close">&#x2715;</button>
+      </div>
+      <div class="adm-modal-form" style="grid-template-columns:1fr 1fr;">
+        <div class="fg" style="margin:0;"><label>Contact Number</label><div class="fc" style="background:var(--bg3);" id="sa-view-cp-number">—</div></div>
+        <div class="fg" style="margin:0;"><label>Date Hired</label><div class="fc" style="background:var(--bg3);" id="sa-view-date-hired">—</div></div>
+        <div class="fg" style="margin:0;grid-column:1/-1;"><label>Home Address</label><div class="fc" style="background:var(--bg3);" id="sa-view-address">—</div></div>
+        <div class="fg" style="margin:0;"><label>SSS Number</label><div class="fc" style="background:var(--bg3);" id="sa-view-sss">—</div></div>
+        <div class="fg" style="margin:0;"><label>Pag-IBIG Number</label><div class="fc" style="background:var(--bg3);" id="sa-view-pagibig">—</div></div>
+        <div class="fg" style="margin:0;grid-column:1/-1;"><label>PhilHealth Number</label><div class="fc" style="background:var(--bg3);" id="sa-view-philhealth">—</div></div>
+        <div class="fg" style="margin:0;"><label>Bank Name</label><div class="fc" style="background:var(--bg3);" id="sa-view-bank-name">—</div></div>
+        <div class="fg" style="margin:0;"><label>Bank Account Number</label><div class="fc" style="background:var(--bg3);" id="sa-view-bank-account">—</div></div>
+        <p style="grid-column:1/-1;font-size:11px;color:var(--t3);margin:4px 0 0;">Read-only — edited by Admin or HR in their own portal.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- ── BRANCH MODAL ── -->
   <div id="sa-branch-modal" class="adm-modal-backdrop" style="display:none;">
     <div class="adm-modal-card" style="max-width:480px;">

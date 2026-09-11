@@ -164,11 +164,17 @@ function mapAttendanceRow(row) {
 }
 
 async function fetchAttendanceRows(supabase, activeEmployees, dateKey) {
+  // Both callers of this function only ever ask for a single day (today) —
+  // filtering by log_date in the query itself (instead of fetching up to
+  // 3000 rows across every date ever logged and discarding everything that
+  // isn't today in JS) is what actually made the dashboard slow, since this
+  // runs on every dashboard load.
   const result = await supabase
     .from("attendance_logs")
     .select("*")
+    .eq("log_date", dateKey)
     .order("created_at", { ascending: false })
-    .limit(3000);
+    .limit(1000);
 
   if (result.error) {
     throw new Error(`Failed to fetch attendance logs: ${result.error.message}`);
@@ -177,6 +183,10 @@ async function fetchAttendanceRows(supabase, activeEmployees, dateKey) {
   const mapped = (result.data || [])
     .map(mapAttendanceRow)
     .filter((row) => {
+      // Defensive: log_date has a NOT NULL DEFAULT CURRENT_DATE, so every row
+      // should already match via the query above — this only catches a row
+      // whose log_date was somehow written wrong, by falling back to the
+      // date implied by time_in/created_at instead.
       const rowDate = row.log_date || getDateKey(row.time_in || row.created_at || new Date());
       return rowDate === dateKey;
     });

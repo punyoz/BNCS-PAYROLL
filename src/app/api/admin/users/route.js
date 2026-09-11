@@ -37,11 +37,18 @@ function shapeUser(user, profile) {
     last_sign_in: user.last_sign_in_at || null,
     created_at: user.created_at || null,
     // Live on profiles, not user_metadata (see
-    // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql).
-    // Displayed on the merged employee table; not editable from this route's
-    // own modal (sa-admin-user-modal covers account fields only).
+    // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql
+    // and 20260914_profile_id_fields_and_perf.sql). Displayed read-only on
+    // the merged employee table's "View Details" — not editable from this
+    // route's own modal (sa-admin-user-modal covers account fields only).
     cp_number: normalizeText(profile?.cp_number, ""),
     date_hired: normalizeText(profile?.date_hired, ""),
+    address: normalizeText(profile?.address, ""),
+    sss_number: normalizeText(profile?.sss_number, ""),
+    pagibig_number: normalizeText(profile?.pagibig_number, ""),
+    philhealth_number: normalizeText(profile?.philhealth_number, ""),
+    bank_name: normalizeText(profile?.bank_name, ""),
+    bank_account_number: normalizeText(profile?.bank_account_number, ""),
   };
 }
 
@@ -76,7 +83,7 @@ async function fetchAllUsers(supabase) {
   if (userIds.length) {
     const profileResult = await supabase
       .from("profiles")
-      .select("id,email,full_name,role,branch_id,cp_number,date_hired")
+      .select("id,email,full_name,role,branch_id,cp_number,date_hired,address,sss_number,pagibig_number,philhealth_number,bank_name,bank_account_number")
       .in("id", userIds);
 
     if (!profileResult.error) {

@@ -286,35 +286,12 @@ function openHrEditEmployeeModal(employee) {
   if (form.elements.address) form.elements.address.value = employee.address || '';
   if (form.elements.cp_number) form.elements.cp_number.value = employee.cp_number || '';
   if (form.elements.date_hired) form.elements.date_hired.value = employee.date_hired || '';
-  if (form.elements.sss_number) form.elements.sss_number.value = employee.sss_number || '';
-  if (form.elements.pagibig_number) form.elements.pagibig_number.value = employee.pagibig_number || '';
-  if (form.elements.philhealth_number) form.elements.philhealth_number.value = employee.philhealth_number || '';
   if (form.elements.bank_name) form.elements.bank_name.value = employee.bank_name || '';
-  if (form.elements.bank_account_number) form.elements.bank_account_number.value = employee.bank_account_number || '';
+  populateDigitFieldsIn(form, employee);
 
   form.querySelectorAll('.field-error').forEach((s) => { s.textContent = ''; });
 
-  const INVALID_ID_CHARS = /[A-Za-z]/g;
-  ['sss_number', 'pagibig_number', 'philhealth_number', 'bank_account_number'].forEach((fieldName) => {
-    const input = form.elements[fieldName];
-    if (!input || input.dataset.hrEditGovIdBound === '1') return;
-    input.dataset.hrEditGovIdBound = '1';
-    const errorSpan = input.nextElementSibling;
-    input.addEventListener('input', () => {
-      const original = input.value;
-      const cleaned = original.replace(INVALID_ID_CHARS, '');
-      if (cleaned !== original) {
-        const pos = input.selectionStart - (original.length - cleaned.length);
-        input.value = cleaned;
-        input.setSelectionRange(Math.max(0, pos), Math.max(0, pos));
-        if (errorSpan && errorSpan.classList.contains('field-error')) {
-          errorSpan.textContent = 'Letters are not allowed in this field.';
-        }
-      } else {
-        if (errorSpan && errorSpan.classList.contains('field-error')) errorSpan.textContent = '';
-      }
-    });
-  });
+  bindDigitFieldsIn(form);
 
   const fb = document.getElementById('hr-edit-employee-feedback');
   if (fb) { fb.textContent = ''; fb.className = 'adm-feedback'; }
@@ -377,11 +354,11 @@ async function submitHrEditEmployee(event) {
     address: (form.elements.address?.value || '').trim(),
     cp_number: (form.elements.cp_number?.value || '').trim(),
     date_hired: (form.elements.date_hired?.value || '').trim(),
-    sss_number: (form.elements.sss_number?.value || '').trim(),
-    pagibig_number: (form.elements.pagibig_number?.value || '').trim(),
-    philhealth_number: (form.elements.philhealth_number?.value || '').trim(),
+    sss_number: digitsOnly(form.elements.sss_number?.value),
+    pagibig_number: digitsOnly(form.elements.pagibig_number?.value),
+    philhealth_number: digitsOnly(form.elements.philhealth_number?.value),
     bank_name: (form.elements.bank_name?.value || '').trim(),
-    bank_account_number: (form.elements.bank_account_number?.value || '').trim(),
+    bank_account_number: digitsOnly(form.elements.bank_account_number?.value),
   };
 
   try {
@@ -1234,6 +1211,7 @@ function openHrAddEmployeeModal() {
   form.reset();
   const fb = document.getElementById('hr-add-employee-feedback');
   if (fb) { fb.textContent = ''; fb.className = 'adm-feedback'; }
+  bindDigitFieldsIn(form);
   modal.style.display = 'flex';
 }
 
@@ -1263,11 +1241,11 @@ async function submitHrAddEmployee(event) {
     address: form.querySelector('[name="address"]').value.trim(),
     cp_number: form.querySelector('[name="cp_number"]').value.trim(),
     date_hired: form.querySelector('[name="date_hired"]').value.trim(),
-    sss_number: form.querySelector('[name="sss_number"]').value.trim(),
-    pagibig_number: form.querySelector('[name="pagibig_number"]').value.trim(),
-    philhealth_number: form.querySelector('[name="philhealth_number"]').value.trim(),
+    sss_number: digitsOnly(form.querySelector('[name="sss_number"]').value),
+    pagibig_number: digitsOnly(form.querySelector('[name="pagibig_number"]').value),
+    philhealth_number: digitsOnly(form.querySelector('[name="philhealth_number"]').value),
     bank_name: form.querySelector('[name="bank_name"]').value.trim(),
-    bank_account_number: form.querySelector('[name="bank_account_number"]').value.trim(),
+    bank_account_number: digitsOnly(form.querySelector('[name="bank_account_number"]').value),
   };
 
   if (!payload.first_name || !payload.last_name) {

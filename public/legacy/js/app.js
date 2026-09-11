@@ -1305,6 +1305,128 @@ function filterBranches(branches, activeOnly) {
   return activeOnly ? branches.filter((b) => b.status === 'Active') : branches;
 }
 
+/**
+ * Same short-stale-time cache shape as fetchBranchesCached(), for
+ * /api/admin/dashboard — clicking away to another sidebar page and back
+ * was re-running the full dashboard aggregation every time. A short TTL
+ * (payroll/attendance figures, not real-time data) keeps quick navigation
+ * instant without showing meaningfully stale numbers.
+ */
+let __dashboardCache = null;
+let __dashboardInFlight = null;
+const DASHBOARD_CACHE_TTL_MS = 20_000;
+
+function invalidateDashboardCache() {
+  __dashboardCache = null;
+  __dashboardInFlight = null;
+}
+
+async function fetchDashboardCached() {
+  if (__dashboardCache && __dashboardCache.expiresAt > Date.now()) {
+    return __dashboardCache.payload;
+  }
+
+  if (!__dashboardInFlight) {
+    __dashboardInFlight = fetch('/api/admin/dashboard')
+      .then(async (res) => {
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Failed to load dashboard data');
+        __dashboardCache = { payload, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS };
+        return payload;
+      })
+      .catch((err) => {
+        __dashboardCache = null;
+        throw err;
+      })
+      .finally(() => {
+        __dashboardInFlight = null;
+      });
+  }
+
+  return __dashboardInFlight;
+}
+
+/**
+ * Numeric-only input handling for the government-ID / bank-account fields
+ * (SSS, Pag-IBIG, PhilHealth, Bank Account Number) shared across Admin's and
+ * HR's Add/Edit Employee forms. Stored values are always digits-only — the
+ * dashes here are a display/input-mask concern, matching each field's
+ * placeholder format (e.g. 12-3456789-0) and the DB CHECK constraint added in
+ * supabase/migrations/20260914_profile_id_fields_and_perf.sql, which also
+ * strips non-digits server-side as a second line of defense.
+ */
+function digitsOnly(value) {
+  return String(value || '').replace(/\D+/g, '');
+}
+
+function formatDigitGroups(digits, groups) {
+  if (!groups || !groups.length) return digits;
+  let result = '';
+  let pos = 0;
+  for (let i = 0; i < groups.length && pos < digits.length; i++) {
+    const chunk = digits.slice(pos, pos + groups[i]);
+    if (!chunk) break;
+    result += (i > 0 ? '-' : '') + chunk;
+    pos += groups[i];
+  }
+  return result;
+}
+
+const DIGIT_FIELD_SPECS = {
+  sss_number: { maxLength: 10, groups: [2, 7, 1] },
+  pagibig_number: { maxLength: 12, groups: [4, 4, 4] },
+  philhealth_number: { maxLength: 12, groups: [2, 9, 1] },
+  bank_account_number: { maxLength: 20, groups: null },
+};
+
+function setFormattedDigitValue(input, rawValue, groups) {
+  if (!input) return;
+  input.value = formatDigitGroups(digitsOnly(rawValue), groups);
+}
+
+function bindDigitInput(input, { maxLength, groups } = {}) {
+  if (!input || input.dataset.digitBound === '1') return;
+  input.dataset.digitBound = '1';
+  input.setAttribute('inputmode', 'numeric');
+
+  input.addEventListener('input', () => {
+    const atEnd = input.selectionStart === input.value.length;
+    input.value = formatDigitGroups(digitsOnly(input.value).slice(0, maxLength), groups);
+    if (atEnd) input.setSelectionRange(input.value.length, input.value.length);
+  });
+
+  // Blocks a non-digit keystroke from landing at all — the 'input' handler
+  // above already strips it, but this avoids the visible flicker of a
+  // rejected character appearing then disappearing.
+  input.addEventListener('keypress', (e) => {
+    if (e.key.length === 1 && !/[0-9]/.test(e.key)) e.preventDefault();
+  });
+
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    input.value = formatDigitGroups(digitsOnly(text).slice(0, maxLength), groups);
+  });
+}
+
+/** Binds every known numeric ID field present in the given form. */
+function bindDigitFieldsIn(form) {
+  if (!form) return;
+  Object.keys(DIGIT_FIELD_SPECS).forEach((name) => {
+    const input = form.elements[name];
+    if (input) bindDigitInput(input, DIGIT_FIELD_SPECS[name]);
+  });
+}
+
+/** Populates every known numeric ID field from `source`, dash-formatted. */
+function populateDigitFieldsIn(form, source) {
+  if (!form || !source) return;
+  Object.keys(DIGIT_FIELD_SPECS).forEach((name) => {
+    const input = form.elements[name];
+    if (input) setFormattedDigitValue(input, source[name], DIGIT_FIELD_SPECS[name].groups);
+  });
+}
+
 function attachSidebarSpotlight(sidebar) {
   if (!sidebar) return;
   sidebar.addEventListener('mousemove', (e) => {

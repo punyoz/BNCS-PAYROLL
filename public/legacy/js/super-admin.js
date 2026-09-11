@@ -523,7 +523,10 @@ function renderSAUsersTable() {
           const branchLabel = u.branch_id ? (branch?.name || 'Unknown') : '—';
           const cpNumberLabel = u.cp_number || '—';
           const dateHiredLabel = u.date_hired || '—';
-          const actionsCell = `<button class="btn btn-outline" style="font-size:11px;padding:4px 10px;" onclick="openSAAdminUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">Edit</button>`;
+          const actionsCell = `
+            <button class="btn btn-outline" style="font-size:11px;padding:4px 10px;" onclick="openSAViewEmployeeModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">View</button>
+            <button class="btn btn-outline" style="font-size:11px;padding:4px 10px;" onclick="openSAAdminUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">Edit</button>
+          `;
           return `<tr>
             <td>${u.full_name || '—'}</td>
             <td style="font-size:12px;color:var(--t3);">${u.email || '—'}</td>
@@ -546,6 +549,40 @@ function renderSAUsersTable() {
 }
 
 /* ── ADMIN USER MANAGEMENT ── */
+// Read-only: Super Admin's own account editor (below) only ever covered
+// account fields (name/email/role/branch/password) — it was never extended
+// to the full HR record, so this is the one place Super Admin can actually
+// see what Admin/HR entered (contact, government IDs, bank details).
+function openSAViewEmployeeModal(user) {
+  const modal = document.getElementById('sa-view-employee-modal');
+  if (!modal) return;
+
+  const set = (id, value, groups) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value ? (groups ? formatDigitGroups(digitsOnly(value), groups) : value) : '—';
+  };
+
+  const titleEl = document.getElementById('sa-view-employee-title');
+  if (titleEl) titleEl.textContent = `${user.full_name || 'Employee'} — Details`;
+
+  set('sa-view-cp-number', user.cp_number);
+  set('sa-view-date-hired', user.date_hired);
+  set('sa-view-address', user.address);
+  set('sa-view-sss', user.sss_number, DIGIT_FIELD_SPECS.sss_number.groups);
+  set('sa-view-pagibig', user.pagibig_number, DIGIT_FIELD_SPECS.pagibig_number.groups);
+  set('sa-view-philhealth', user.philhealth_number, DIGIT_FIELD_SPECS.philhealth_number.groups);
+  set('sa-view-bank-name', user.bank_name);
+  set('sa-view-bank-account', user.bank_account_number);
+
+  modal.style.display = 'flex';
+}
+
+function closeSAViewEmployeeModal() {
+  const modal = document.getElementById('sa-view-employee-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 async function openSAAdminUserModal(user) {
   const modal = document.getElementById('sa-admin-user-modal');
   const form = document.getElementById('sa-admin-user-form');
@@ -2090,6 +2127,8 @@ window.submitSARfidAttendanceScan = submitSARfidAttendanceScan;
 window.loadSAAttendanceData = loadSAAttendanceData;
 window.exportSAAttendanceCsv = exportSAAttendanceCsv;
 
+window.openSAViewEmployeeModal = openSAViewEmployeeModal;
+window.closeSAViewEmployeeModal = closeSAViewEmployeeModal;
 window.openSAAdminUserModal = openSAAdminUserModal;
 window.closeSAAdminUserModal = closeSAAdminUserModal;
 window.submitSAAdminUser = submitSAAdminUser;

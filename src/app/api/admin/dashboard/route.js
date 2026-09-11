@@ -252,8 +252,12 @@ export async function GET() {
     const employees = await fetchEmployees(supabase);
     const activeEmployees = employees.filter((employee) => !employee.archived);
 
-    const approvalData = await fetchApprovalData();
-    const attendancePanels = await getAttendancePanels(supabase, activeEmployees);
+    // These two don't depend on each other's result — running them
+    // sequentially was pure added latency on every dashboard load.
+    const [approvalData, attendancePanels] = await Promise.all([
+      fetchApprovalData(),
+      getAttendancePanels(supabase, activeEmployees),
+    ]);
     const payload = await buildDashboardPayload(supabase, activeEmployees, approvalData, attendancePanels);
 
     return NextResponse.json(payload);

@@ -2,7 +2,7 @@ import { listUsersCached, invalidateUsersCache } from "@/lib/auth/users-cache";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sanitizeError } from "@/lib/api-error";
-import { normalizeRole, normalizeRoleEmail, normalizeText } from "@/lib/auth/normalize";
+import { normalizeRole, normalizeRoleEmail, normalizeText, normalizeDigits } from "@/lib/auth/normalize";
 import { appendAuditLog } from "@/lib/audit/store";
 import {
   requirePermission,
@@ -165,12 +165,15 @@ function shapeEmployee(user, profile, index) {
     employment_status: normalizeText(metadata.employment_status, "Regular"),
     archived: Boolean(metadata.archived),
     date_of_birth: normalizeText(metadata.date_of_birth, ""),
-    address: normalizeText(metadata.address, ""),
-    sss_number: normalizeText(metadata.sss_number, ""),
-    pagibig_number: normalizeText(metadata.pagibig_number, ""),
-    philhealth_number: normalizeText(metadata.philhealth_number, ""),
-    bank_name: normalizeText(metadata.bank_name, ""),
-    bank_account_number: normalizeText(metadata.bank_account_number, ""),
+    // profiles is now authoritative for these (real, constrained columns —
+    // see supabase/migrations/20260914_profile_id_fields_and_perf.sql);
+    // metadata is only a fallback for a profile row not yet backfilled.
+    address: normalizeText(profile?.address, normalizeText(metadata.address, "")),
+    sss_number: normalizeText(profile?.sss_number, normalizeText(metadata.sss_number, "")),
+    pagibig_number: normalizeText(profile?.pagibig_number, normalizeText(metadata.pagibig_number, "")),
+    philhealth_number: normalizeText(profile?.philhealth_number, normalizeText(metadata.philhealth_number, "")),
+    bank_name: normalizeText(profile?.bank_name, normalizeText(metadata.bank_name, "")),
+    bank_account_number: normalizeText(profile?.bank_account_number, normalizeText(metadata.bank_account_number, "")),
     // Live on profiles, not user_metadata (see
     // supabase/migrations/20260910_transfer_requests_and_employee_contact.sql).
     cp_number: normalizeText(profile?.cp_number, ""),
@@ -213,16 +216,21 @@ async function fetchEmployees(supabase) {
   if (userIds.length) {
     const profileResult = await supabase
       .from("profiles")
-      .select("id,email,full_name,role,branch_id,cp_number,date_hired")
+      .select("id,email,full_name,role,branch_id,cp_number,date_hired,address,sss_number,pagibig_number,philhealth_number,bank_name,bank_account_number")
       .in("id", userIds);
 
+    // Degrade to auth-metadata-only (matching /api/admin/users and
+    // /api/hr/employees) instead of failing the whole list — this keeps
+    // Admin's employee table working even mid-deploy, before
+    // 20260914_profile_id_fields_and_perf.sql has been run against a given
+    // environment, rather than a missing column taking the page down.
     if (profileResult.error) {
-      throw new Error(`Failed to fetch profiles: ${profileResult.error.message}`);
+      console.error("Failed to fetch profiles:", profileResult.error.message);
+    } else {
+      (profileResult.data || []).forEach((profile) => {
+        profileMap.set(profile.id, profile);
+      });
     }
-
-    (profileResult.data || []).forEach((profile) => {
-      profileMap.set(profile.id, profile);
-    });
   }
 
   return employeeUsers
@@ -343,6 +351,12 @@ export async function POST(request) {
         branch_id: branchId,
         cp_number: normalizeText(body.cp_number, "") || null,
         date_hired: normalizeText(body.date_hired, "") || null,
+        address: normalizeText(body.address, "") || null,
+        sss_number: normalizeDigits(body.sss_number, 10) || null,
+        pagibig_number: normalizeDigits(body.pagibig_number, 12) || null,
+        philhealth_number: normalizeDigits(body.philhealth_number, 12) || null,
+        bank_name: normalizeText(body.bank_name, "") || null,
+        bank_account_number: normalizeDigits(body.bank_account_number, 20) || null,
       },
       {
         onConflict: "id",
@@ -360,6 +374,12 @@ export async function POST(request) {
       role,
       cp_number: normalizeText(body.cp_number, ""),
       date_hired: normalizeText(body.date_hired, ""),
+      address: normalizeText(body.address, ""),
+      sss_number: normalizeDigits(body.sss_number, 10),
+      pagibig_number: normalizeDigits(body.pagibig_number, 12),
+      philhealth_number: normalizeDigits(body.philhealth_number, 12),
+      bank_name: normalizeText(body.bank_name, ""),
+      bank_account_number: normalizeDigits(body.bank_account_number, 20),
     }, employeesBefore.length);
 
     await appendAuditLog({
@@ -518,10 +538,17 @@ export async function PATCH(request) {
         role: nextRole,
         full_name: nextMetadata.full_name,
       };
-      // profiles is authoritative for these two (employee_info_view reads
-      // from profiles, not user_metadata) — only touch them when supplied.
+      // profiles is authoritative for these (employee_info_view and every
+      // other employee-listing route read from profiles, not user_metadata)
+      // — only touch a field when the caller actually supplied it.
       if (body.cp_number !== undefined) profilePatch.cp_number = normalizeText(body.cp_number, "") || null;
       if (body.date_hired !== undefined) profilePatch.date_hired = normalizeText(body.date_hired, "") || null;
+      if (body.address !== undefined) profilePatch.address = normalizeText(body.address, "") || null;
+      if (body.sss_number !== undefined) profilePatch.sss_number = normalizeDigits(body.sss_number, 10) || null;
+      if (body.pagibig_number !== undefined) profilePatch.pagibig_number = normalizeDigits(body.pagibig_number, 12) || null;
+      if (body.philhealth_number !== undefined) profilePatch.philhealth_number = normalizeDigits(body.philhealth_number, 12) || null;
+      if (body.bank_name !== undefined) profilePatch.bank_name = normalizeText(body.bank_name, "") || null;
+      if (body.bank_account_number !== undefined) profilePatch.bank_account_number = normalizeDigits(body.bank_account_number, 20) || null;
 
       const profileResult = await supabase.from("profiles").upsert(profilePatch, {
         onConflict: "id",
@@ -540,6 +567,12 @@ export async function PATCH(request) {
       full_name: nextMetadata.full_name || existingUser.user_metadata?.full_name || existingUser.email,
       cp_number: nextMetadata.cp_number,
       date_hired: nextMetadata.date_hired,
+      address: nextMetadata.address,
+      sss_number: nextMetadata.sss_number,
+      pagibig_number: nextMetadata.pagibig_number,
+      philhealth_number: nextMetadata.philhealth_number,
+      bank_name: nextMetadata.bank_name,
+      bank_account_number: nextMetadata.bank_account_number,
     }, 0);
 
     const actionLabel = action === "archive"
